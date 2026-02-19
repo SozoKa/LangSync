@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangSync — Translation Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;700;800&display=swap');
+
+/* ─── THEME TOKENS ─── */
+:root {
+  --accent:  #5b8af0;
+  --accent2: #7c5bf0;
+  --green:   #22c472;
+  --yellow:  #c8960a;
+  --red:     #e05252;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'Syne', sans-serif;
+  --r: 8px;
+}
+[data-theme="dark"] {
+  --bg:#0d0f14; --bg2:#13161e; --bg3:#1a1e2a; --bg4:#222636;
+  --border:#2a2f42; --text:#e8eaf0; --text2:#8890a8; --text3:#555d78;
+  --sh:0 4px 24px rgba(0,0,0,.45);
+  --green-t:rgba(34,196,114,.1);
+  --warn-bg:rgba(200,150,10,.12); --warn-bd:rgba(200,150,10,.3);
+  --miss-bg:rgba(224,82,82,.1);   --miss-bd:rgba(224,82,82,.3);
+}
+[data-theme="light"] {
+  --bg:#f2f4fb; --bg2:#ffffff; --bg3:#edf0f8; --bg4:#e2e6f2;
+  --border:#d0d6e8; --text:#1a1d2e; --text2:#5a6282; --text3:#9098b8;
+  --sh:0 4px 20px rgba(0,0,0,.1);
+  --green-t:rgba(34,196,114,.08);
+  --warn-bg:rgba(200,150,10,.1);  --warn-bd:rgba(200,150,10,.28);
+  --miss-bg:rgba(224,82,82,.08); --miss-bd:rgba(224,82,82,.28);
+}
+
+/* Category palette — 8 levels, cycling */
+:root {
+  --c1:#5b8af0; --c2:#7c5bf0; --c3:#b05bf0; --c4:#e05ba8;
+  --c5:#e07a3a; --c6:#c0b020; --c7:#38b878; --c8:#38b8b8;
+}
+[data-theme="dark"] {
+  --c1-bg:rgba(91,138,240,.07);  --c2-bg:rgba(124,91,240,.07);
+  --c3-bg:rgba(176,91,240,.06);  --c4-bg:rgba(224,91,168,.06);
+  --c5-bg:rgba(224,122,58,.06);  --c6-bg:rgba(192,176,32,.05);
+  --c7-bg:rgba(56,184,120,.05);  --c8-bg:rgba(56,184,184,.05);
+}
+[data-theme="light"] {
+  --c1-bg:rgba(91,138,240,.06);  --c2-bg:rgba(124,91,240,.06);
+  --c3-bg:rgba(176,91,240,.05);  --c4-bg:rgba(224,91,168,.05);
+  --c5-bg:rgba(224,122,58,.05);  --c6-bg:rgba(192,176,32,.04);
+  --c7-bg:rgba(56,184,120,.04);  --c8-bg:rgba(56,184,184,.04);
+}
+
+/* ─── BASE ─── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);height:100vh;overflow:hidden;display:flex;flex-direction:column;transition:background .2s,color .2s}
+
+/* ─── TOPBAR ─── */
+#topbar{display:flex;align-items:center;gap:9px;padding:0 18px;height:54px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;z-index:100}
+#logo{font-size:17px;font-weight:800;letter-spacing:-.5px;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;user-select:none;white-space:nowrap}
+.sep{flex:1}
+.tb-btn{display:flex;align-items:center;gap:6px;padding:7px 13px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);font-family:var(--sans);font-size:12.5px;font-weight:600;cursor:pointer;transition:all .14s;white-space:nowrap;user-select:none}
+.tb-btn:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+.tb-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.tb-btn.primary:hover{filter:brightness(1.1)}
+.tb-btn:disabled{opacity:.3;cursor:default;pointer-events:none}
+.tb-btn svg{width:14px;height:14px;flex-shrink:0}
+.undo-btn{display:flex;align-items:center;gap:4px;padding:6px 9px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;transition:all .14s}
+.undo-btn:hover:not(:disabled){background:var(--bg4);color:var(--text);border-color:var(--text3)}
+.undo-btn:disabled{opacity:.28;cursor:default;pointer-events:none}
+.undo-btn svg{width:13px;height:13px}
+#sw{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:6px 11px;width:220px;transition:border-color .14s}
+#sw:focus-within{border-color:var(--accent)}
+#sw svg{width:13px;height:13px;color:var(--text3);flex-shrink:0}
+#sw input{background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px;width:100%}
+#sw input::placeholder{color:var(--text3)}
+#theme-btn{display:flex;align-items:center;gap:5px;padding:5px 9px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);cursor:pointer;font-size:12px;font-weight:600;color:var(--text2);transition:all .14s;user-select:none}
+#theme-btn:hover{background:var(--bg4);color:var(--text)}
+
+/* ─── LAYOUT ─── */
+#main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* ─── SIDEBAR ─── */
+#sidebar{width:250px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:background .2s}
+.sb-hdr{padding:16px 16px 9px;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3)}
+#lang-list{flex:1;overflow-y:auto;padding:0 8px 4px;min-height:0}
+.li{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:6px;margin-bottom:2px;position:relative;transition:background .12s}
+.li:hover{background:var(--bg3)}
+.li.master{background:var(--bg4)}
+.li.master::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:16px;background:var(--accent);border-radius:2px}
+.li-flag{font-size:19px;line-height:1;flex-shrink:0}
+.li-info{flex:1;min-width:0}
+.li-name{font-size:12.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.li-code{font-size:10.5px;color:var(--text3);font-family:var(--mono);margin-top:1px}
+.li-pct{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--green);flex-shrink:0}
+.li-pct.med{color:var(--yellow)}.li-pct.lo{color:var(--red)}
+.bw{padding:0 11px 7px;margin-top:-1px}
+.bar{height:2px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.bf{height:100%;border-radius:2px;background:var(--green);transition:width .4s}
+.bf.med{background:var(--yellow)}.bf.lo{background:var(--red)}
+.ldel{opacity:0;cursor:pointer;color:var(--text3);transition:opacity .12s;font-size:12px;padding:2px 4px;border-radius:3px}
+.li:hover .ldel{opacity:1}
+.ldel:hover{color:var(--red)!important;background:rgba(224,82,82,.1)}
+#add-lang-wrap{display:none;padding:4px 8px 12px;flex-direction:column;gap:5px}
+.alb{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text3);transition:all .14s}
+.alb:hover{border-color:var(--accent);color:var(--accent);background:var(--bg3)}
+.alb.acc{border-color:var(--accent);color:var(--accent)}
+.alb.acc:hover{background:rgba(91,138,240,.07)}
+
+/* ─── CENTER ─── */
+#center{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
+
+/* ─── DROP ZONE ─── */
+#dropzone{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:36px 24px}
+#drop-area{width:100%;max-width:500px;border:2px dashed var(--border);border-radius:14px;padding:48px 28px;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2)}
+#drop-area:hover,#drop-area.over{border-color:var(--accent);background:rgba(91,138,240,.05)}
+#drop-area svg{width:44px;height:44px;color:var(--text3);margin-bottom:14px}
+#drop-area h2{font-size:20px;font-weight:700;margin-bottom:8px}
+#drop-area p{color:var(--text2);font-size:13.5px;line-height:1.7}
+#drop-area .hint{margin-top:12px;font-size:11px;color:var(--text3);font-family:var(--mono)}
+.or-div{display:flex;align-items:center;gap:11px;width:100%;max-width:500px;color:var(--text3);font-size:12px}
+.or-div::before,.or-div::after{content:'';flex:1;height:1px;background:var(--border)}
+.fresh-btn{display:flex;align-items:center;gap:7px;padding:11px 22px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-family:var(--sans);font-size:13.5px;font-weight:600;cursor:pointer;transition:all .14s}
+.fresh-btn:hover{background:var(--bg4);color:var(--text);border-color:var(--accent)}
+#privacy-notice{display:flex;align-items:flex-start;gap:11px;width:100%;max-width:500px;background:var(--green-t);border:1px solid rgba(34,196,114,.22);border-radius:9px;padding:13px 15px;font-size:12.5px;color:var(--text2);line-height:1.6}
+#privacy-notice .pn-icon{font-size:16px;flex-shrink:0;margin-top:1px}
+#privacy-notice strong{color:var(--text);font-weight:700}
+
+/* ─── TABLE VIEW ─── */
+#tv{flex:1;display:none;flex-direction:column;overflow:hidden;min-height:0}
+#tv-toolbar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:9px 14px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0}
+.ftab{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--text3);font-family:var(--sans);transition:all .12s}
+.ftab:hover{color:var(--text);border-color:var(--text3)}
+.ftab.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ftab-c{margin-left:4px;padding:0px 5px;border-radius:9px;font-size:10px;background:rgba(255,255,255,.18);font-family:var(--mono)}
+#stats-bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:7px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:12px;color:var(--text2);flex-shrink:0}
+.stat{display:flex;align-items:center;gap:5px;font-family:var(--mono)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Scroll area — horizontal scroll, table grows freely */
+#tw{flex:1;overflow:auto;min-height:0}
+/* table-layout:fixed + width:max-content → columns keep their set width,
+   table expands rightward; resize one col without touching others */
+table{border-collapse:collapse;font-size:13px;table-layout:fixed;width:max-content;min-width:100%}
+
+/* Z-INDEX STACKING
+   The only reliable way to keep sticky cols above scrolled content:
+   - td.key-col: isolation:isolate + z-index:20
+   - All other td: NO stacking context (no position, z-index, transform)
+   - thead th.key-col: z-index:30 (corner = top+left sticky) */
+thead th{
+  position:sticky;top:0;z-index:15;
+  padding:9px 10px 9px 13px;
+  background:var(--bg3);
+  border-bottom:2px solid var(--border);
+  border-right:1px solid var(--border);
+  text-align:left;font-size:10.5px;font-weight:700;
+  letter-spacing:.7px;text-transform:uppercase;
+  color:var(--text3);white-space:nowrap;
+  user-select:none;overflow:visible;
+}
+thead th:first-child{width:30px;min-width:30px;padding:0;z-index:16}
+thead th.key-col{
+  width:360px;min-width:120px;
+  position:sticky;left:0;top:0;z-index:30;
+  background:var(--bg3);overflow:hidden;
+}
+thead th.lang-col{width:250px;min-width:140px}
+
+/* Column resize handle — visible bar on right edge of each header */
+.col-rsz{
+  position:absolute;right:0;top:0;bottom:0;width:8px;
+  cursor:col-resize;z-index:5;user-select:none;
+  display:flex;align-items:center;justify-content:center;
+}
+.col-rsz::after{
+  content:'';width:2px;height:55%;
+  background:var(--border);border-radius:2px;
+  transition:background .12s,height .12s;
+}
+.col-rsz:hover::after,.col-rsz.active::after{
+  background:var(--accent);height:75%;
+}
+
+tbody tr{border-bottom:1px solid var(--border)}
+tbody tr:hover{background:rgba(91,138,240,.025)}
+tbody tr.sel{background:rgba(91,138,240,.08)!important}
+
+/* Base td: absolutely NO position, z-index, transform, opacity, or will-change.
+   Any of these create stacking contexts that break sticky z-index ordering. */
+td{padding:8px 13px;vertical-align:middle;border-right:1px solid var(--border)}
+td:first-child{padding:0;text-align:center;width:30px}
+
+/* STICKY KEY COLUMN — must paint above ALL other td on horizontal scroll.
+   isolation:isolate + high z-index is the only reliable combination.
+   We do NOT use transform:translateZ(0) as it creates a stacking context
+   that can interfere with child overflow painting. */
+td.key-col{
+  position:sticky;left:0;z-index:20;
+  background:var(--bg2);
+  /* will-change:transform promotes this td to its own compositor layer,
+     guaranteed to paint above all sibling td regardless of their stacking context */
+  will-change:transform;
+}
+tbody tr:hover td.key-col{background:var(--bg3)}
+tbody tr.sel td.key-col{background:rgba(91,138,240,.1)!important}
+
+/* Value cells: ZERO stacking context.
+   - no position (or position:static only)
+   - no z-index
+   - no transform
+   - no will-change
+   - no opacity transition (use visibility instead)
+   - overflow:clip instead of overflow:hidden (clip doesn't form stacking context) */
+td.vc{overflow:clip;position:static}
+
+/* Key cells — flex so actions sit at far right */
+td.kc{
+  font-family:var(--mono);font-size:11.5px;color:var(--text2);
+  display:flex;align-items:center;gap:6px;
+  overflow:hidden; /* clips overflowing key text */
+}
+.kc-inner{
+  display:flex;align-items:center;gap:6px;
+  flex:1;min-width:0;overflow:hidden;
+}
+.kc-inner > span:first-child{
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* Drag — whole row acts as drag handle on non-interactive areas */
+tbody tr[data-key]{cursor:grab;position:static}
+tbody tr[data-key]:active{cursor:grabbing}
+
+/* ── INSERT "+" OVERLAY ──
+   Single fixed element, moved by JS on row hover.
+   position:fixed bypasses all table overflow/stacking. */
+#row-insert-overlay{
+  display:none;
+  position:fixed;
+  z-index:900;
+  height:2px;
+  pointer-events:none;
+  background:var(--accent);
+  box-shadow:0 0 6px rgba(91,138,240,.5);
+  border-radius:2px;
+}
+#row-insert-overlay.show{display:block}
+/* The real clickable button — inside the div, not ::after */
+#row-insert-btn{
+  position:absolute;
+  left:40px;
+  top:50%;transform:translateY(-50%);
+  width:22px;height:22px;
+  border-radius:50%;
+  background:var(--accent);color:#fff;
+  font-size:16px;font-weight:700;line-height:22px;text-align:center;
+  cursor:pointer;pointer-events:auto;
+  border:none;padding:0;
+  box-shadow:0 1px 6px rgba(0,0,0,.3);
+  transition:transform .1s,box-shadow .1s;
+  z-index:901;
+}
+#row-insert-btn:hover{transform:translateY(-50%) scale(1.18);box-shadow:0 2px 10px rgba(91,138,240,.5)}
+body.dragging #row-insert-overlay{display:none!important}
+
+/* Drop-line overlay — shown during drag to indicate insertion point */
+#drop-line{
+  display:none;position:fixed;pointer-events:none;z-index:998;
+  height:2px;background:var(--accent);
+  box-shadow:0 0 6px rgba(91,138,240,.7);border-radius:2px;
+}
+#drop-line::before{
+  content:'';position:absolute;left:-5px;top:50%;transform:translateY(-50%);
+  width:10px;height:10px;border-radius:50%;background:var(--accent);
+}
+#drop-line.show{display:block}
+
+/* Value cell — NO stacking context properties here */
+.ci{display:flex;align-items:center;gap:4px;min-height:26px}
+/* contenteditable: no position:relative, no z-index, no transform.
+   Transitions only on border-color/background (safe — no stacking context). */
+.ct{
+  flex:1;font-size:12px;color:var(--text);font-family:var(--mono);
+  word-break:break-word;line-height:1.5;padding:3px 6px;border-radius:4px;
+  border:1px solid transparent;
+  transition:border-color .12s,background .12s;
+  min-height:26px;outline:none;
+  user-select:text;-webkit-user-select:text;
+  cursor:text;
+}
+.ct:hover:not([contenteditable="true"]){border-color:var(--border)}
+.ct[contenteditable="true"]{border-color:var(--accent);background:var(--bg3)}
+.ct.empty{color:var(--text3);font-style:italic}
+.ct.ph{background:rgba(192,140,10,.07)}
+
+/* Action buttons in VALUE cells — copy only (edit/delete moved to key col) */
+.cas{display:flex;align-items:center;gap:2px;opacity:0;flex-shrink:0}
+/* Use visibility transition instead of opacity to avoid stacking context */
+.vc:hover .cas,.vc:focus-within .cas{opacity:1}
+
+/* Key-col action buttons (edit, delete, copy for cats) */
+.kc-actions{
+  display:flex;align-items:center;gap:2px;
+  opacity:0;flex-shrink:0;margin-left:auto;
+  transition:opacity .1s;
+}
+tr:hover .kc-actions{opacity:1}
+
+.cb{
+  width:26px;height:26px;border-radius:5px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:background .12s,color .12s,border-color .12s;
+  color:var(--text2);border:1px solid transparent;
+  background:transparent;flex-shrink:0;
+}
+.cb:hover{border-color:var(--border);background:var(--bg4);color:var(--text)}
+.cb.cp:hover{color:var(--accent);border-color:rgba(91,138,240,.4);background:rgba(91,138,240,.1)}
+.cb.dl:hover{color:var(--red);border-color:rgba(224,82,82,.4);background:rgba(224,82,82,.1)}
+.cb.ed:hover{color:var(--accent);border-color:rgba(91,138,240,.4);background:rgba(91,138,240,.1)}
+.cb svg{width:14px;height:14px;stroke-width:2.2}
+
+/* Tags */
+.tag{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:var(--mono);flex-shrink:0}
+.tag.orphan{color:var(--yellow);background:var(--warn-bg);border:1px solid var(--warn-bd)}
+.tag.missing{color:var(--red);background:var(--miss-bg);border:1px solid var(--miss-bd)}
+.tag.warn{color:var(--yellow);background:var(--warn-bg);border:1px solid var(--warn-bd)}
+
+/* Category checkbox — fills entire cell height, checkbox centred */
+td.cat-cb-td{
+  padding:0;
+  width:30px;
+  cursor:pointer;
+  /* Use display:table-cell default (no flex/position) to avoid stacking context */
+  vertical-align:middle;
+  text-align:center;
+}
+td.cat-cb-td input[type=checkbox]{
+  accent-color:var(--accent);
+  cursor:pointer;
+  width:14px;height:14px;
+  vertical-align:middle;
+  opacity:0;
+  /* transition only opacity — safe, no stacking context */
+  transition:opacity .15s;
+  /* Reset any browser default margins */
+  margin:0;
+}
+.cat-row:hover td.cat-cb-td input,
+.cat-row.cat-sel td.cat-cb-td input{opacity:1}
+
+/* Danger confirm button */
+.tb-btn.danger{background:rgba(224,82,82,.1);color:var(--red);border-color:rgba(224,82,82,.3)}
+.tb-btn.danger:hover{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* Sidebar master hint (shown on non-master language hover) */
+.set-master-hint{
+  font-size:9px;color:var(--text3);background:var(--bg4);
+  padding:1px 5px;border-radius:7px;margin-left:3px;
+  display:none;vertical-align:middle;
+}
+.li:not(.master):hover .set-master-hint{display:inline}
+
+/* ─── CATEGORY ROWS ─── */
+.cat-row td.key-col{background:inherit!important}
+td.cat-kc{white-space:nowrap;overflow:hidden;display:flex;align-items:center;gap:6px}
+.cat-label-inner{display:flex;align-items:center;gap:8px;user-select:none;cursor:pointer;min-width:0;flex:1;overflow:hidden}
+.cat-label-inner:hover .cat-title{opacity:.82}
+.cat-arrow{
+  width:20px;height:20px;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;transition:transform .18s;
+  flex-shrink:0;border:1.5px solid currentColor;opacity:.7;
+  line-height:1;
+}
+.cat-arrow:hover{opacity:1}
+.cat-arrow.cl{transform:rotate(-90deg)}
+.cat-title{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Georgia,'Times New Roman',serif}
+.cat-d1 .cat-title{font-size:13.5px}
+.cat-d2 .cat-title{font-size:13px}
+.cat-d3 .cat-title{font-size:12.5px}
+.cat-dn  .cat-title{font-size:12px}
+.cat-key-hint{font-family:var(--mono);font-size:9px;opacity:.35;font-weight:400;flex-shrink:0}
+.cat-pip-wrap{display:flex;gap:2px;flex-shrink:0;align-items:center}
+.cat-pip{width:4px;height:4px;border-radius:50%;background:currentColor;opacity:.5}
+.cat-actions{display:flex;align-items:center;gap:2px;opacity:0;flex-shrink:0;margin-left:6px;transition:opacity .1s}
+.cat-row:hover .cat-actions{opacity:1}
+
+/* Copy dropdown */
+.copy-dd{position:fixed;z-index:2000;background:var(--bg4);border:1px solid var(--border);border-radius:7px;padding:4px;min-width:200px;box-shadow:var(--sh)}
+.copy-dd-item{padding:7px 11px;border-radius:4px;cursor:pointer;font-size:12px;font-family:var(--mono);color:var(--text2);transition:all .1s;white-space:nowrap}
+.copy-dd-item:hover{background:var(--bg3);color:var(--text)}
+.copy-dd-sep{font-size:10px;color:var(--text3);padding:6px 11px 3px;text-transform:uppercase;letter-spacing:1px;font-weight:700}
+
+/* ─── BATCH BAR ─── */
+#batch-bar{display:none;align-items:center;gap:10px;padding:10px 14px;background:var(--bg4);border-top:1px solid var(--border);flex-shrink:0;font-size:13px}
+#batch-bar.on{display:flex}
+.batch-n{font-weight:700;color:var(--accent)}
+
+/* ─── MODALS ─── */
+.mo{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(6px);animation:fi .15s}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+.md{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:28px;width:480px;max-width:95vw;max-height:88vh;overflow-y:auto;box-shadow:var(--sh);animation:su .18s}
+@keyframes su{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+.md h3{font-size:17px;font-weight:700;margin-bottom:5px}
+.md p{color:var(--text2);font-size:12.5px;margin-bottom:16px;line-height:1.65}
+.md-act{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.fg{margin-bottom:14px}
+.fl{font-size:10.5px;font-weight:700;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.8px;display:block}
+.fi2{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:8px 11px;color:var(--text);font-family:var(--mono);font-size:12.5px;outline:none;transition:border-color .14s}
+.fi2:focus{border-color:var(--accent)}
+.fi2::placeholder{color:var(--text3)}
+select.fi2{cursor:pointer}
+.toggle-wrap{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+.toggle-wrap input[type=checkbox]{display:none}
+.toggle-track{width:34px;height:18px;background:var(--bg4);border:1px solid var(--border);border-radius:9px;position:relative;transition:background .2s,border-color .2s;flex-shrink:0}
+.toggle-wrap input:checked+.toggle-track{background:var(--accent);border-color:var(--accent)}
+.toggle-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.toggle-wrap input:checked+.toggle-track .toggle-thumb{left:16px}
+.toggle-label{font-size:12.5px;color:var(--text2)}
+
+/* ─── ALERTS ─── */
+#alerts{position:fixed;bottom:18px;right:18px;z-index:500;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.al{padding:11px 15px;border-radius:8px;font-size:12.5px;font-weight:600;pointer-events:auto;animation:sir .2s,fo .3s 2.7s forwards;display:flex;align-items:center;gap:8px;max-width:320px;box-shadow:var(--sh)}
+@keyframes sir{from{transform:translateX(12px);opacity:0}to{opacity:1}}
+@keyframes fo{to{opacity:0;transform:translateX(6px)}}
+.al.ok{background:rgba(34,196,114,.14);border:1px solid rgba(34,196,114,.28);color:var(--green)}
+.al.er{background:rgba(224,82,82,.14);border:1px solid rgba(224,82,82,.28);color:var(--red)}
+.al.in{background:rgba(91,138,240,.14);border:1px solid rgba(91,138,240,.28);color:var(--accent)}
+.al.wa{background:rgba(200,150,10,.14);border:1px solid rgba(200,150,10,.28);color:var(--yellow)}
+
+/* Global drop overlay */
+#gdo{display:none;position:fixed;inset:0;z-index:900;background:rgba(91,138,240,.07);border:3px dashed var(--accent);border-radius:14px;margin:12px;align-items:center;justify-content:center;flex-direction:column;gap:10px;pointer-events:none}
+#gdo.show{display:flex}
+#gdo h2{font-size:19px;font-weight:700;color:var(--accent)}
+#gdo p{color:var(--text2);font-size:13px}
+
+/* Unsaved dot */
+#unsaved-dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);display:none;margin-left:2px}
+#unsaved-dot.show{display:inline-block}
+
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--border)}
+input[type=file]{display:none}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 20px;color:var(--text3);gap:11px}
+.empty-state svg{width:38px;height:38px;opacity:.32}
+.empty-state p{font-size:13.5px}
+code{background:var(--bg4);padding:1px 5px;border-radius:4px;font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body>
+
+<div id="gdo">
+  <h2>Drop JSON files anywhere</h2>
+  <p>All .json files will be added to the project</p>
+</div>
+<div id="drop-line"></div>
+<div id="row-insert-overlay"><button id="row-insert-btn" type="button">+</button></div>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div id="logo">⟨ LangSync ⟩</div>
+  <span id="unsaved-dot" title="Unsaved changes"></span>
+
+  <div id="sw" style="display:none">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="sinp" placeholder="Search keys or values…" oninput="renderTable()">
+  </div>
+  <div class="sep"></div>
+
+  <div id="undo-wrap" style="display:none;align-items:center;gap:3px">
+    <button class="undo-btn" id="btn-undo" onclick="doUndo()" disabled title="Undo (Ctrl+Z)">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>Undo
+    </button>
+    <button class="undo-btn" id="btn-redo" onclick="doRedo()" disabled title="Redo (Ctrl+Y)">
+      Redo<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+    </button>
+  </div>
+  <div class="sep"></div>
+
+  <button class="tb-btn" id="btn-addkey"  style="display:none" onclick="openAddKeyModal()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M12 5v14M5 12h14"/></svg>Add key
+  </button>
+  <button class="tb-btn" id="btn-addcat"  style="display:none" onclick="openAddCatModal(null,'end')">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>Add category
+  </button>
+  <button class="tb-btn" onclick="document.getElementById('fi').click()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import
+  </button>
+  <button class="tb-btn" id="btn-export" style="display:none" onclick="exportAll()">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export
+  </button>
+  <!-- Master selection moved to sidebar click -->
+  <div id="theme-btn" onclick="cycleTheme()" title="Toggle theme">
+    <span id="theme-icon">🌙</span><span id="theme-label">Dark</span>
+  </div>
+</div>
+
+<input type="file" id="fi" multiple accept=".json" onchange="handleFileInput(this.files)">
+
+<!-- MAIN -->
+<div id="main">
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sb-hdr">Languages</div>
+    <div id="lang-list">
+      <div style="padding:16px 10px;color:var(--text3);font-size:11.5px;line-height:1.7">Import JSON files<br>to get started</div>
+    </div>
+    <div id="add-lang-wrap">
+      <div class="alb acc" onclick="openNewLangModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="12" height="12"><path d="M12 5v14M5 12h14"/></svg>New language file
+      </div>
+      <div class="alb" onclick="document.getElementById('fi').click()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import existing JSON
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div id="center">
+    <!-- DROP ZONE -->
+    <div id="dropzone">
+      <div id="drop-area"
+        ondragover="event.preventDefault();this.classList.add('over')"
+        ondragleave="this.classList.remove('over')"
+        ondrop="handleDzDrop(event)"
+        onclick="document.getElementById('fi').click()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <h2>Drop your JSON files here</h2>
+        <p>Drop <strong>en_us.json</strong> and as many language files as you need.<br>They'll be synchronized automatically.</p>
+        <div class="hint">Accepted: *.json — flat key-value objects</div>
+      </div>
+      <div id="privacy-notice">
+        <span class="pn-icon">🔒</span>
+        <div><strong>100% local — your files never leave your device.</strong><br>LangSync runs entirely in your browser. No files are uploaded, stored, or sent to any server. Everything stays private.</div>
+      </div>
+      <div class="or-div">or</div>
+      <button class="fresh-btn" onclick="startFresh()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="14" height="14"><path d="M12 5v14M5 12h14"/></svg>Start from scratch
+      </button>
+    </div>
+
+    <!-- TABLE VIEW -->
+    <div id="tv">
+      <div id="tv-toolbar">
+        <button class="ftab on" id="tab-all"     onclick="setTab('all')">All</button>
+        <button class="ftab"    id="tab-missing" onclick="setTab('missing')">Missing<span class="ftab-c" id="tc-missing">0</span></button>
+        <button class="ftab"    id="tab-ph"      onclick="setTab('ph')">%s<span class="ftab-c" id="tc-ph">0</span></button>
+        <button class="ftab"    id="tab-orphan"  onclick="setTab('orphan')">Orphan<span class="ftab-c" id="tc-orphan">0</span></button>
+        <div class="sep"></div>
+        <label style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="sel-all" onchange="toggleSelectAll(this.checked)" style="accent-color:var(--accent)">Select all
+        </label>
+      </div>
+      <div id="stats-bar">
+        <span class="stat"><span class="dot" style="background:var(--text3)"></span><span id="st-total">0</span> keys</span>
+        <span class="stat"><span class="dot" style="background:var(--red)"></span><span id="st-miss">0</span> missing</span>
+        <span class="stat"><span class="dot" style="background:var(--green)"></span><span id="st-ph">0</span> with %s</span>
+      </div>
+      <div id="tw">
+        <table id="tbl">
+          <thead id="thead"><tr></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="batch-bar">
+        <span><span class="batch-n" id="batchn">0</span> selected</span>
+        <button class="tb-btn" onclick="batchDelete()">🗑 Delete</button>
+        <button class="tb-btn" onclick="clearSel()">✕ Deselect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="alerts"></div>
+<div id="modal-root"></div>
+
+<script>
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+const S = {
+  files:[],       // [{filename,lang,data:{},orphan:{}}]
+  keyOrder:[],    // master key ordering
+  master:'en_us',
+  tab:'all',
+  collapsed:{},
+  sel:new Set(),
+  undo:[],
+  redo:[],
+  dirty:false,    // unsaved changes
+};
+
+// ══════════════════════════════════════════════
+//  CATEGORY COLORS (infinite cycling palette)
+// ══════════════════════════════════════════════
+const CAT_COLORS = [
+  {color:'#5b8af0',bg:'var(--c1-bg)'},
+  {color:'#7c5bf0',bg:'var(--c2-bg)'},
+  {color:'#b05bf0',bg:'var(--c3-bg)'},
+  {color:'#e05ba8',bg:'var(--c4-bg)'},
+  {color:'#e07a3a',bg:'var(--c5-bg)'},
+  {color:'#b0a020',bg:'var(--c6-bg)'},
+  {color:'#38b878',bg:'var(--c7-bg)'},
+  {color:'#38b8b8',bg:'var(--c8-bg)'},
+];
+function catColor(depth){ return CAT_COLORS[(depth-1) % CAT_COLORS.length]; }
+
+// ══════════════════════════════════════════════
+//  THEME
+// ══════════════════════════════════════════════
+const THEMES = ['auto','dark','light'];
+let themeMode = localStorage.getItem('ls-theme')||'auto';
+function applyTheme(){
+  const mq = window.matchMedia('(prefers-color-scheme: light)');
+  const eff = themeMode==='auto'?(mq.matches?'light':'dark'):themeMode;
+  document.documentElement.setAttribute('data-theme',eff);
+  const icons={auto:'⚙️',dark:'🌙',light:'☀️'}, labels={auto:'Auto',dark:'Dark',light:'Light'};
+  document.getElementById('theme-icon').textContent=icons[themeMode];
+  document.getElementById('theme-label').textContent=labels[themeMode];
+}
+function cycleTheme(){ themeMode=THEMES[(THEMES.indexOf(themeMode)+1)%THEMES.length]; localStorage.setItem('ls-theme',themeMode); applyTheme(); }
+window.matchMedia('(prefers-color-scheme: light)').addEventListener('change',applyTheme);
+applyTheme();
+
+// ══════════════════════════════════════════════
+//  LANG METADATA
+// ══════════════════════════════════════════════
+const EMOJI={en_us:'🇺🇸',en_gb:'🇬🇧',fr_fr:'🇫🇷',de_de:'🇩🇪',es_es:'🇪🇸',pt_br:'🇧🇷',it_it:'🇮🇹',ru_ru:'🇷🇺',ja_jp:'🇯🇵',zh_cn:'🇨🇳',ko_kr:'🇰🇷',nl_nl:'🇳🇱',pl_pl:'🇵🇱',tr_tr:'🇹🇷',sv_se:'🇸🇪',da_dk:'🇩🇰',fi_fi:'🇫🇮',nb_no:'🇳🇴',cs_cz:'🇨🇿',hu_hu:'🇭🇺',ro_ro:'🇷🇴',uk_ua:'🇺🇦',ar_sa:'🇸🇦',zh_tw:'🇹🇼',vi_vn:'🇻🇳'};
+const NAMES={en_us:'English (US)',en_gb:'English (UK)',fr_fr:'Français',de_de:'Deutsch',es_es:'Español',pt_br:'Português (BR)',it_it:'Italiano',ru_ru:'Русский',ja_jp:'日本語',zh_cn:'中文 (简体)',ko_kr:'한국어',nl_nl:'Nederlands',pl_pl:'Polski',tr_tr:'Türkçe',sv_se:'Svenska',da_dk:'Dansk',fi_fi:'Suomi',nb_no:'Norsk',cs_cz:'Čeština',hu_hu:'Magyar',ro_ro:'Română',uk_ua:'Українська',ar_sa:'العربية',zh_tw:'中文 (繁體)',vi_vn:'Tiếng Việt'};
+const emoji=c=>EMOJI[c]||'🌐';
+const lname=c=>NAMES[c]||c;
+
+// ══════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════
+const esc=s=>s==null?'':String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+const getMaster=()=>S.files.find(f=>f.lang===S.master)||null;
+const getOthers=()=>S.files.filter(f=>f.lang!==S.master);
+const catDepth=key=>{let d=0;while(key[d]==='_')d++;return d;};
+const isCat=key=>key.startsWith('_');
+
+// Get all children (entries + sub-cats) that "belong" to a category key
+function catChildren(catKey){
+  const d=catDepth(catKey);
+  const idx=S.keyOrder.indexOf(catKey);
+  const children=[];
+  for(let i=idx+1;i<S.keyOrder.length;i++){
+    const k=S.keyOrder[i];
+    if(isCat(k)&&catDepth(k)<=d) break;
+    children.push(k);
+  }
+  return children;
+}
+
+// ══════════════════════════════════════════════
+//  UNSAVED STATE
+// ══════════════════════════════════════════════
+function markDirty(){ S.dirty=true; document.getElementById('unsaved-dot').classList.add('show'); }
+function markClean(){ S.dirty=false; document.getElementById('unsaved-dot').classList.remove('show'); }
+
+window.addEventListener('beforeunload',e=>{
+  if(S.dirty){ e.preventDefault(); e.returnValue=''; }
+});
+
+// ══════════════════════════════════════════════
+//  FILE HANDLING
+// ══════════════════════════════════════════════
+function handleDzDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-area').classList.remove('over');
+  loadFiles(Array.from(e.dataTransfer.files));
+}
+function handleFileInput(list){ loadFiles(Array.from(list)); document.getElementById('fi').value=''; }
+
+async function loadFiles(list){
+  if(S.dirty && S.files.length){
+    showConfirm('You have <strong>unsaved changes</strong>. Import anyway?', ()=>_doLoadFiles(list));
+    return;
+  }
+  await _doLoadFiles(list);
+}
+async function _doLoadFiles(list){
+  const loaded=[];
+  for(const f of list){
+    if(!f.name.endsWith('.json')){ toast(`${f.name}: not a JSON file`,'er'); continue; }
+    try{
+      const raw=await f.text();
+      const data=JSON.parse(raw);
+      if(typeof data!=='object'||Array.isArray(data)) throw 0;
+      loaded.push({filename:f.name,lang:f.name.replace('.json',''),data,orphan:{}});
+    }catch(e){ toast(`Parse error: ${f.name}`,'er'); }
+  }
+  if(!loaded.length) return;
+
+  for(const r of loaded){
+    const idx=S.files.findIndex(x=>x.lang===r.lang);
+    if(idx>=0) S.files[idx]=r;
+    else S.files.push(r);
+  }
+
+  const m=S.files.find(f=>f.lang===S.master);
+  if(!m){ openPickMasterModal(); return; }
+  rebuildKeyOrder(); sync(); showProject();
+  toast(`${loaded.length} file(s) loaded`,'ok');
+}
+
+function startFresh(){
+  if(S.dirty){
+    showConfirm('You have <strong>unsaved changes</strong>. Start fresh anyway?', _doStartFresh);
+    return;
+  }
+  _doStartFresh();
+}
+function _doStartFresh(){
+  S.files=[{filename:'en_us.json',lang:'en_us',data:{},orphan:{}}];
+  S.master='en_us'; S.keyOrder=[]; S.collapsed={}; S.sel=new Set(); S.undo=[]; S.redo=[];
+  sync(); showProject(); markClean();
+  toast('Empty project created!','in');
+}
+
+function rebuildKeyOrder(){
+  const m=getMaster(); if(!m) return;
+  const mk=Object.keys(m.data);
+  S.keyOrder=S.keyOrder.filter(k=>mk.includes(k));
+  for(const k of mk) if(!S.keyOrder.includes(k)) S.keyOrder.push(k);
+}
+
+function sync(){
+  const m=getMaster(); if(!m) return;
+  for(const f of S.files){
+    if(f.lang===S.master){f.orphan={};continue;}
+    for(const k of S.keyOrder) if(!(k in f.data)) f.data[k]='';
+    f.orphan={};
+    for(const k of Object.keys(f.data)) if(!S.keyOrder.includes(k)) f.orphan[k]=true;
+  }
+}
+
+// ══════════════════════════════════════════════
+//  PROJECT VIEW
+// ══════════════════════════════════════════════
+function showProject(){
+  document.getElementById('dropzone').style.display='none';
+  document.getElementById('tv').style.display='flex';
+  ['btn-addkey','btn-addcat','btn-export'].forEach(id=>document.getElementById(id).style.display='');
+  document.getElementById('sw').style.display='';
+  document.getElementById('add-lang-wrap').style.display='flex';
+  document.getElementById('undo-wrap').style.display='flex';
+  renderSidebar(); renderTable();
+}
+
+// ══════════════════════════════════════════════
+//  SIDEBAR
+// ══════════════════════════════════════════════
+function renderSidebar(){
+  const entryKeys=S.keyOrder.filter(k=>!isCat(k));
+  const total=entryKeys.length||1;
+  let html='';
+  for(const f of S.files){
+    const nonEmpty=Object.entries(f.data).filter(([k,v])=>!isCat(k)&&v!=='').length;
+    const pct=f.lang===S.master?100:Math.round(nonEmpty/total*100);
+    const cls=pct>=80?'':pct>=50?'med':'lo';
+    const isMaster=f.lang===S.master;
+    html+=`
+    <div class="li ${isMaster?'master':''}" ${!isMaster?`onclick="askSetMaster('${esc(f.lang)}')" title="Click to set as master language" style="cursor:pointer"`:'title="Current master language"'}>
+      <span class="li-flag">${emoji(f.lang)}</span>
+      <div class="li-info">
+        <div class="li-name">${esc(lname(f.lang))}${isMaster?'&nbsp;<span style="font-size:9px;color:var(--accent);background:rgba(91,138,240,.15);padding:1px 5px;border-radius:7px">MASTER</span>':'<span class="set-master-hint">Set as master</span>'}</div>
+        <div class="li-code">${esc(f.lang)}.json</div>
+      </div>
+      <span class="li-pct ${cls}">${pct}%</span>
+      ${!isMaster?`<span class="ldel" onclick="event.stopPropagation();askRemoveLang('${esc(f.lang)}')" title="Remove">✕</span>`:''}
+    </div>
+    <div class="bw"><div class="bar"><div class="bf ${cls}" style="width:${pct}%"></div></div></div>`;
+  }
+  document.getElementById('lang-list').innerHTML=html||'<div style="padding:12px;color:var(--text3);font-size:11.5px">No languages</div>';
+}
+
+function askRemoveLang(lang){
+  showConfirm(
+    `Remove <strong>${esc(lang)}.json</strong> from the project?`,
+    ()=>{ S.files=S.files.filter(f=>f.lang!==lang); markDirty(); renderSidebar(); renderTable(); toast(`${lang} removed`,'in'); }
+  );
+}
+
+// ══════════════════════════════════════════════
+//  COLLAPSE (depth-aware)
+// ══════════════════════════════════════════════
+function buildHidden(){
+  const hidden=new Set();
+  let stack=[]; // [{key,depth,collapsed}]
+  for(const k of S.keyOrder){
+    if(isCat(k)){
+      const d=catDepth(k);
+      while(stack.length&&stack[stack.length-1].depth>=d) stack.pop();
+      if(stack.some(a=>a.collapsed)) hidden.add(k);
+      stack.push({key:k,depth:d,collapsed:!!S.collapsed[k]});
+    } else {
+      if(stack.some(a=>a.collapsed)) hidden.add(k);
+    }
+  }
+  return hidden;
+}
+
+function getEntryIndent(key){
+  const idx=S.keyOrder.indexOf(key);
+  for(let i=idx-1;i>=0;i--) if(isCat(S.keyOrder[i])) return catDepth(S.keyOrder[i]);
+  return 0;
+}
+
+function toggleCollapse(key){ S.collapsed[key]=!S.collapsed[key]; renderTable(); }
+
+// ══════════════════════════════════════════════
+//  COLUMN RESIZING — independent (no compression)
+//  Each column has its own fixed width.
+//  The table grows via width:max-content — resizing
+//  one column does NOT shrink others.
+// ══════════════════════════════════════════════
+const colWidths = {};
+let resizingCol = null, resizingColIdx = -1, resizeStartX = 0, resizeStartW = 0;
+
+function initColResizers(){
+  document.querySelectorAll('thead th').forEach((th, i) => {
+    if(!th.classList.contains('key-col') && !th.classList.contains('lang-col')) return;
+    if(th.querySelector('.col-rsz')) return;
+    const rsz = document.createElement('div');
+    rsz.className = 'col-rsz';
+    rsz.addEventListener('mousedown', e => {
+      e.preventDefault(); e.stopPropagation();
+      resizingCol = th; resizingColIdx = i;
+      resizeStartX = e.clientX; resizeStartW = th.offsetWidth;
+      rsz.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    th.appendChild(rsz);
+    if(colWidths[i]){ th.style.width=colWidths[i]+'px'; th.style.minWidth=colWidths[i]+'px'; }
+  });
+}
+
+document.addEventListener('mousemove', e => {
+  if(!resizingCol) return;
+  const newW = Math.max(80, resizeStartW + (e.clientX - resizeStartX));
+  // Only this column grows — table expands via max-content; others untouched
+  resizingCol.style.width = newW+'px';
+  resizingCol.style.minWidth = newW+'px';
+  colWidths[resizingColIdx] = newW;
+});
+document.addEventListener('mouseup', () => {
+  if(!resizingCol) return;
+  colWidths[resizingColIdx] = resizingCol.offsetWidth;
+  resizingCol.querySelector('.col-rsz')?.classList.remove('active');
+  resizingCol = null; resizingColIdx = -1;
+  document.body.style.cursor = ''; document.body.style.userSelect = '';
+});
+
+// ══════════════════════════════════════════════
+//  DRAG & DROP — whole row, precise drop-line
+// ══════════════════════════════════════════════
+let dragSrcKey = null;
+let dropLine = null;
+let dropInsertAfterKey = null; // null means insert at start
+
+function initDropLine(){
+  if(!dropLine) dropLine = document.getElementById('drop-line');
+}
+
+// Whole-row drag — set draggable on mousedown on non-interactive areas
+document.addEventListener('mousedown', e => {
+  // Never on inputs, buttons, contenteditable, checkboxes, dropdowns
+  if(e.target.closest('[contenteditable]')) return;
+  if(e.target.closest('button,.cb,.ldel,input,select,a,.cat-arrow')) return;
+  const row = e.target.closest('tr[data-key]');
+  if(!row) return;
+  row.setAttribute('draggable','true');
+  const up = () => { row.removeAttribute('draggable'); };
+  document.addEventListener('mouseup', up, {once:true});
+});
+
+// ── INSERT OVERLAY — single global fixed element ──
+let _insertAfterKey = null;
+const _insertOverlay = document.getElementById('row-insert-overlay');
+const _insertBtn     = document.getElementById('row-insert-btn');
+
+function initInsertOverlay(){
+  const tbody = document.getElementById('tbody');
+  // Re-wire every time table renders (tbody is replaced)
+  if(tbody._insertListenersAdded) return;
+  tbody._insertListenersAdded = true;
+
+  tbody.addEventListener('mouseover', e => {
+    if(document.body.classList.contains('dragging')){
+      _insertOverlay.classList.remove('show'); return;
+    }
+    const row = e.target.closest('tr[data-key]');
+    if(!row){ _insertOverlay.classList.remove('show'); return; }
+    const twRect = document.getElementById('tw').getBoundingClientRect();
+    const rect   = row.getBoundingClientRect();
+    _insertAfterKey = row.dataset.key;
+    // Position overlay at bottom edge of row, clipped to scroll container width
+    _insertOverlay.style.top   = (rect.bottom - 1) + 'px';
+    _insertOverlay.style.left  = twRect.left + 'px';
+    _insertOverlay.style.width = twRect.width + 'px';
+    _insertOverlay.classList.add('show');
+  });
+
+  tbody.addEventListener('mouseleave', () => {
+    // Small delay so hovering the overlay button itself doesn't hide it
+    setTimeout(() => {
+      if(!_insertOverlay.matches(':hover')) _insertOverlay.classList.remove('show');
+    }, 80);
+  });
+}
+
+// Wire button once at startup (it persists in DOM)
+_insertBtn.addEventListener('click', () => {
+  if(_insertAfterKey) openInsertModal(_insertAfterKey);
+});
+_insertOverlay.addEventListener('mouseleave', () => {
+  _insertOverlay.classList.remove('show');
+});
+
+function dstart(e, key){
+  dragSrcKey = key;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', key);
+  document.body.classList.add('dragging');
+  _insertOverlay.classList.remove('show');
+  initDropLine();
+}
+
+function dover(e, key){
+  if(!dragSrcKey) return;
+  e.preventDefault();
+  e.stopPropagation();
+  e.dataTransfer.dropEffect = 'move';
+
+  const row = e.currentTarget;
+  const rect = row.getBoundingClientRect();
+  const twEl = document.getElementById('tw');
+  const twRect = twEl.getBoundingClientRect();
+  const midY = rect.top + rect.height / 2;
+  const isBefore = e.clientY < midY;
+
+  // Find neighbour for "after" reference
+  const rows = Array.from(document.querySelectorAll('#tbody tr[data-key]'));
+  const idx = rows.indexOf(row);
+
+  if(isBefore){
+    // Insert before this row → after the previous row's key
+    dropInsertAfterKey = idx > 0 ? rows[idx-1].dataset.key : null;
+  } else {
+    dropInsertAfterKey = row.dataset.key;
+  }
+
+  // Position drop-line
+  const lineY = isBefore ? rect.top : rect.bottom;
+  dropLine.style.top = (lineY - 1) + 'px';
+  dropLine.style.left = twRect.left + 'px';
+  dropLine.style.width = twRect.width + 'px';
+  dropLine.classList.add('show');
+}
+
+// Listen on tbody for dragleave (hide when leaving table)
+document.addEventListener('dragleave', e => {
+  if(!dragSrcKey || !dropLine) return;
+  if(!e.relatedTarget || !e.relatedTarget.closest('#tbody')){
+    dropLine.classList.remove('show');
+  }
+});
+
+function ddrop(e, targetKey){
+  e.preventDefault(); e.stopPropagation();
+  if(dropLine) dropLine.classList.remove('show');
+  if(!dragSrcKey){ dropInsertAfterKey=null; return; }
+
+  const src = dragSrcKey;
+  const insertAfter = dropInsertAfterKey;
+  dragSrcKey = null; dropInsertAfterKey = null;
+
+  if(src === insertAfter){ return; } // no-op
+
+  // For categories: ask whether to move with children
+  if(isCat(src)){
+    const children = catChildren(src);
+    if(children.length > 0){
+      showModal(`
+        <h3>Move category</h3>
+        <p>Move <strong>${esc(getMaster()?.data[src]||src)}</strong> with or without its ${children.length} child key(s)?</p>
+        <div class="md-act" style="justify-content:space-between">
+          <button class="tb-btn" onclick="closeModal()">Cancel</button>
+          <div style="display:flex;gap:8px">
+            <button class="tb-btn" onclick="execMove('${esc(src)}',false,'${esc(insertAfter??'')}');closeModal()">Header only</button>
+            <button class="tb-btn primary" onclick="execMove('${esc(src)}',true,'${esc(insertAfter??'')}');closeModal()">With all ${children.length} children</button>
+          </div>
+        </div>`);
+      return;
+    }
+  }
+  execMove(src, false, insertAfter??'');
+}
+
+function execMove(src, withChildren, insertAfterRaw){
+  const insertAfter = insertAfterRaw === '' ? null : insertAfterRaw;
+  pushUndo();
+
+  let keysToMove;
+  if(S.sel.size > 1 && S.sel.has(src)){
+    // Multi-selection drag
+    keysToMove = S.keyOrder.filter(k => S.sel.has(k));
+  } else if(withChildren && isCat(src)){
+    keysToMove = [src, ...catChildren(src)];
+  } else {
+    keysToMove = [src];
+  }
+
+  if(insertAfter && keysToMove.includes(insertAfter)){ toast('Cannot drop onto itself','wa'); return; }
+
+  S.keyOrder = S.keyOrder.filter(k => !keysToMove.includes(k));
+  if(insertAfter === null){
+    S.keyOrder.unshift(...keysToMove);
+  } else {
+    const ti = S.keyOrder.indexOf(insertAfter);
+    if(ti >= 0) S.keyOrder.splice(ti+1, 0, ...keysToMove);
+    else S.keyOrder.push(...keysToMove);
+  }
+  markDirty(); renderTable();
+}
+
+document.addEventListener('dragend', () => {
+  document.body.classList.remove('dragging');
+  if(dropLine) dropLine.classList.remove('show');
+  document.querySelectorAll('#tbody tr').forEach(r => { r.removeAttribute('draggable'); });
+  dragSrcKey = null; dropInsertAfterKey = null;
+});
+
+// ══════════════════════════════════════════════
+//  SELECTION — checkbox + shift-click + cat click
+// ══════════════════════════════════════════════
+let lastClickedKey = null;
+
+function handleRowClick(e, key){
+  // Ignore clicks on inputs/buttons/contenteditable
+  if(e.target.closest('[contenteditable],button,.cb,input,select,.cat-arrow,.ldel')) return;
+  if(isCat(key)){
+    // Click on cat row → select/deselect all its visible children
+    const children = catChildren(key).filter(k => !buildHidden().has(k));
+    const allSelected = children.every(k => S.sel.has(k));
+    children.forEach(k => { if(allSelected) S.sel.delete(k); else S.sel.add(k); });
+    lastClickedKey = key;
+    updateBatchBar();
+    renderTable();
+    return;
+  }
+  if(e.shiftKey && lastClickedKey && lastClickedKey !== key){
+    // Shift+click: select range between lastClickedKey and this key
+    const visibleKeys = S.keyOrder.filter(k => !isCat(k) && !buildHidden().has(k));
+    const a = visibleKeys.indexOf(lastClickedKey);
+    const b = visibleKeys.indexOf(key);
+    if(a >= 0 && b >= 0){
+      const [lo,hi] = a<b?[a,b]:[b,a];
+      for(let i=lo;i<=hi;i++) S.sel.add(visibleKeys[i]);
+    }
+  } else {
+    // Toggle single
+    if(S.sel.has(key)) S.sel.delete(key);
+    else S.sel.add(key);
+    lastClickedKey = key;
+  }
+  updateBatchBar();
+  renderTable();
+}
+
+function toggleSel(key, v){
+  if(v) S.sel.add(key); else S.sel.delete(key);
+  lastClickedKey = key;
+  updateBatchBar();
+  // Update just this row's class without full re-render
+  const r = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+  if(r) r.classList.toggle('sel', v);
+}
+
+// ══════════════════════════════════════════════
+//  ICON CONSTANTS (stroke-width 2.2, size 14)
+// ══════════════════════════════════════════════
+const ICON_COPY  = `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2.2' width='14' height='14'><rect x='9' y='9' width='13' height='13' rx='2' ry='2'/><path d='M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1'/></svg>`;
+const ICON_EDIT  = `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2.2' width='14' height='14'><path d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/><path d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/></svg>`;
+const ICON_TRASH = `<svg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='currentColor' stroke-width='2.2' width='14' height='14'><polyline points='3 6 5 6 21 6'/><path d='M19 6l-1 14H6L5 6'/><path d='M10 11v6M14 11v6'/></svg>`;
+
+// ══════════════════════════════════════════════
+//  TABLE RENDER
+// ══════════════════════════════════════════════
+function renderTable(){
+  const m = getMaster(); if(!m) return;
+  const others = getOthers();
+  const search = (document.getElementById('sinp').value||'').toLowerCase().trim();
+  const tab = S.tab;
+
+  // Build header
+  let hd = `<tr>
+    <th style="width:30px;min-width:30px"></th>
+    <th class="key-col">Key</th>
+    <th class="lang-col">${emoji(S.master)} ${esc(S.master)} <span style="opacity:.45;font-weight:400;font-size:9px;font-family:var(--mono)">(master)</span></th>`;
+  for(const f of others) hd += `<th class="lang-col">${emoji(f.lang)} ${esc(f.lang)}</th>`;
+  hd += '</tr>';
+  document.getElementById('thead').innerHTML = hd;
+  // Re-init resizers after header rebuild
+  setTimeout(()=>{ initColResizers(); updateTableWidth(); initInsertOverlay(); }, 0);
+
+  // Orphan keys
+  const orphanKeys = [];
+  for(const f of others) for(const k of Object.keys(f.orphan||{}))
+    if(!S.keyOrder.includes(k) && !orphanKeys.includes(k)) orphanKeys.push(k);
+
+  const hidden = buildHidden();
+  let rows = '', total=0, miss=0, phc=0;
+
+  for(const key of S.keyOrder){
+    if(hidden.has(key)) continue;
+
+    const isCategory = isCat(key);
+    const val = m.data[key] ?? '';
+
+    if(isCategory){
+      if(tab !== 'all') continue;
+    } else {
+      if(!matchTab(key,tab,m,others)) continue;
+      if(search && !matchSearch(key,search,m,others)) continue;
+    }
+
+    if(isCategory){
+      // ── CATEGORY ROW ──
+      const d = catDepth(key);
+      const {color,bg} = catColor(d);
+      const isClosed = !!S.collapsed[key];
+      const title = val || key;
+      const pips = Array(Math.min(d,6)).fill(`<span class="cat-pip"></span>`).join('');
+      const indent = Math.max(0,d-1)*14;
+      const dCls = d<=2 ? `cat-d${d}` : 'cat-dn';
+
+      // Check if all non-hidden children are selected (for cat checkbox state)
+      const _catKids=catChildren(key).filter(k=>!hidden.has(k));
+      const _catAllSel=_catKids.length>0&&_catKids.every(k=>S.sel.has(k));
+      rows += `<tr class="cat-row${_catAllSel?' cat-sel':''}" data-key="${esc(key)}"
+        ondragstart="dstart(event,'${esc(key)}')"
+        ondragover="dover(event,'${esc(key)}')"
+        ondrop="ddrop(event,'${esc(key)}')"
+        onclick="handleRowClick(event,'${esc(key)}')"
+        style="background:${bg}"
+      >
+      <td class="cat-cb-td" style="background:${bg}" onclick="event.stopPropagation();catSelChange('${esc(key)}',!_catAllSel)">
+        <input type="checkbox" style="accent-color:${color}" ${_catAllSel?'checked':''} onchange="event.stopPropagation();catSelChange('${esc(key)}',this.checked)">
+      </td>
+      <td class="key-col cat-kc ${dCls}" style="background:${bg};color:${color};padding-left:${10+indent}px">
+        <div class="cat-label-inner" onclick="event.stopPropagation();toggleCollapse('${esc(key)}')">
+          <span class="cat-arrow ${isClosed?'cl':''}" style="border-color:${color}70;color:${color}">▾</span>
+          <span class="cat-title">${esc(title)}</span>
+          <span class="cat-key-hint">${esc(key)}</span>
+          <span class="cat-pip-wrap" style="color:${color}">${pips}</span>
+        </div>
+        <div class="kc-actions" onclick="event.stopPropagation()">
+          <button class="cb ed" title="Edit category" onclick="openEditCatModal('${esc(key)}')">${ICON_EDIT}</button>
+          <button class="cb dl" title="Delete category" onclick="deleteCat('${esc(key)}')">${ICON_TRASH}</button>
+        </div>
+      </td>`;
+
+      // Master label — copy only, no edit/delete (moved to key col)
+      rows += `<td class="vc" style="background:${bg}"><div class="ci">
+        <div class="ct${!val?' empty':''}" contenteditable="true" onfocus="sedit(this)"
+          onblur="cedit(this,'${esc(S.master)}','${esc(key)}')" onkeydown="ckey(event,this)"
+        >${esc(val)||'<span style="color:var(--text3);font-style:italic">no label</span>'}</div>
+        <div class="cas">
+          <button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(S.master)}','${esc(key)}')">${ICON_COPY}</button>
+        </div>
+      </div></td>`;
+
+      for(const f of others){
+        const fv = f.data[key] ?? '';
+        rows += `<td class="vc" style="background:${bg}"><div class="ci">
+          <div class="ct${!fv?' empty':''}" contenteditable="true" onfocus="sedit(this)"
+            onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)"
+          >${esc(fv)||'<span style="color:var(--text3);font-style:italic">— untranslated —</span>'}</div>
+          <div class="cas">
+            <button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(f.lang)}','${esc(key)}')">${ICON_COPY}</button>
+          </div>
+        </div></td>`;
+      }
+      rows += '</tr>';
+
+    } else {
+      // ── ENTRY ROW ──
+      total++;
+      const hasPh = val.includes('%s');
+      if(hasPh) phc++;
+      const indent = getEntryIndent(key);
+      const pl = 12 + indent*16;
+      const masterEmpty = val === '';
+      const anyMissing = others.some(f => f.data[key]==='' || f.data[key]==null);
+      if(anyMissing) miss++;
+
+      rows += `<tr data-key="${esc(key)}"
+        ondragstart="dstart(event,'${esc(key)}')"
+        ondragover="dover(event,'${esc(key)}')"
+        ondrop="ddrop(event,'${esc(key)}')"
+        onclick="handleRowClick(event,'${esc(key)}')"
+        class="${S.sel.has(key)?'sel':''}"
+      >
+      <td onclick="event.stopPropagation()">
+        <input type="checkbox" style="accent-color:var(--accent)" ${S.sel.has(key)?'checked':''} onchange="toggleSel('${esc(key)}',this.checked)">
+      </td>
+      <td class="kc key-col" style="padding-left:${pl}px">
+        <div class="kc-inner">
+          <span title="${esc(key)}">${esc(key)}</span>
+          ${masterEmpty ? `<span class="tag warn" title="Empty in master">⚠ master</span>` : ''}
+        </div>
+        <div class="kc-actions" onclick="event.stopPropagation()">
+          <button class="cb dl" title="Delete key" onclick="deleteKey('${esc(key)}')">${ICON_TRASH}</button>
+        </div>
+      </td>`;
+
+      // Master val — copy only in .cas
+      rows += `<td class="vc" data-lang="${esc(S.master)}" data-key="${esc(key)}"><div class="ci">
+        <div class="ct${masterEmpty?' empty':''}${hasPh?' ph':''}"
+          contenteditable="true" onfocus="sedit(this)"
+          onblur="cedit(this,'${esc(S.master)}','${esc(key)}')" onkeydown="ckey(event,this)"
+        >${esc(val)||'<span style="color:var(--text3);font-style:italic">empty</span>'}</div>
+        <div class="cas">
+          <button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(S.master)}','${esc(key)}')">${ICON_COPY}</button>
+        </div>
+      </div></td>`;
+
+      // Other langs
+      for(const f of others){
+        const fv = f.data[key] ?? '';
+        const isEmpty = fv === '';
+        const isOrphan = !!(f.orphan && f.orphan[key]);
+        rows += `<td class="vc" data-lang="${esc(f.lang)}" data-key="${esc(key)}"><div class="ci">
+          <div class="ct${isEmpty?' empty':''}${hasPh?' ph':''}"
+            contenteditable="true" onfocus="sedit(this)"
+            onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)"
+          >${esc(fv)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div>
+          ${isEmpty && !isOrphan ? `<span class="tag missing" data-tag="missing-${esc(f.lang)}">!</span>` : ''}
+          ${isOrphan ? `<span class="tag orphan">orphan</span>` : ''}
+          <div class="cas">
+            <button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(f.lang)}','${esc(key)}')">${ICON_COPY}</button>
+          </div>
+        </div></td>`;
+      }
+      rows += '</tr>';
+    }
+  }
+
+  // Orphan rows
+  if(tab==='all'||tab==='orphan'){
+    for(const key of orphanKeys){
+      if(search && !matchSearch(key,search,m,others)) continue;
+      rows += `<tr data-key="${esc(key)}">
+        <td onclick="event.stopPropagation()"><input type="checkbox" style="accent-color:var(--accent)" ${S.sel.has(key)?'checked':''} onchange="toggleSel('${esc(key)}',this.checked)"></td>
+        <td class="kc key-col"><div class="kc-inner"><span>${esc(key)}</span><span class="tag orphan">orphan</span></div></td>
+        <td style="color:var(--text3);font-style:italic;font-size:11px;vertical-align:middle">not in master</td>`;
+      for(const f of others){
+        const fv = f.data[key]??'';
+        rows += `<td class="vc"><div class="ci">
+          <div class="ct${!fv?' empty':''}" contenteditable="true" onfocus="sedit(this)"
+            onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)"
+          >${esc(fv)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div>
+        </div></td>`;
+      }
+      rows += `<td><button class="tb-btn" style="font-size:11px;padding:3px 7px;white-space:nowrap" onclick="promoteOrphan('${esc(key)}')">Add to master</button></td></tr>`;
+    }
+  }
+
+  if(!rows) rows = `<tr><td colspan="20"><div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <p>No results for this filter</p></div></td></tr>`;
+
+  document.getElementById('tbody').innerHTML = rows;
+
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-miss').textContent = miss;
+  document.getElementById('st-ph').textContent = phc;
+
+  let cm=0, cp=0, co=orphanKeys.length;
+  for(const k of S.keyOrder.filter(k => !isCat(k))){
+    if((m.data[k]||'').includes('%s')) cp++;
+    for(const f of others) if(!f.data[k]) cm++;
+  }
+  document.getElementById('tc-missing').textContent = cm;
+  document.getElementById('tc-ph').textContent = cp;
+  document.getElementById('tc-orphan').textContent = co;
+
+  renderSidebar();
+  updateBatchBar();
+  updateUndoRedoBtns();
+}
+
+function matchTab(key,tab,m,others){
+  if(tab==='all') return true;
+  if(tab==='ph') return (m.data[key]||'').includes('%s');
+  if(tab==='missing') return others.some(f=>!f.data[key]);
+  if(tab==='orphan') return others.some(f=>f.orphan&&f.orphan[key]);
+  return true;
+}
+function matchSearch(key,s,m,others){
+  if(key.toLowerCase().includes(s)) return true;
+  if((m.data[key]||'').toLowerCase().includes(s)) return true;
+  return others.some(f=>(f.data[key]||'').toLowerCase().includes(s));
+}
+function setTab(t){
+  S.tab=t;
+  document.querySelectorAll('.ftab').forEach(b=>b.classList.remove('on'));
+  document.getElementById('tab-'+t).classList.add('on');
+  renderTable();
+}
+
+// ══════════════════════════════════════════════
+//  EDITING — live tag refresh, no full re-render
+// ══════════════════════════════════════════════
+function sedit(el){
+  el.dataset.before = el.textContent.trim();
+  if(el.querySelector('span')) el.innerHTML = '';
+}
+
+function cedit(el, lang, key){
+  const v = el.textContent.trim();
+  const f = S.files.find(x => x.lang===lang);
+  if(!f) return;
+  const old = f.data[key] ?? '';
+
+  if(v === old){
+    // Restore placeholder without re-render
+    if(!v) el.innerHTML = '<span style="color:var(--text3);font-style:italic">' +
+      (isCat(key) ? (lang===S.master?'no label':'— untranslated —') : (lang===S.master?'empty':'— empty —')) + '</span>';
+    return;
+  }
+
+  pushUndo();
+  f.data[key] = v;
+  markDirty();
+
+  if(lang === S.master && !isCat(key)){
+    rebuildKeyOrder(); sync();
+  }
+  if(lang === S.master && isCat(key)){
+    // Update visible cat title in-place
+    const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+    if(row){ const t = row.querySelector('.cat-title'); if(t) t.textContent = v||key; }
+  }
+
+  // Restore placeholder if empty
+  if(!v) el.innerHTML = '<span style="color:var(--text3);font-style:italic">' +
+    (isCat(key) ? (lang===S.master?'no label':'— untranslated —') : (lang===S.master?'empty':'— empty —')) + '</span>';
+
+  // Live-refresh tags on the affected td without full re-render
+  refreshCellTags(lang, key, v);
+  // Also refresh master-empty warning on the key cell
+  if(lang === S.master) refreshKeyColTag(key, v);
+
+  renderSidebar();
+  updateUndoRedoBtns();
+}
+
+function refreshCellTags(lang, key, newVal){
+  // Find the td for this lang+key
+  const td = document.querySelector(`td.vc[data-lang="${CSS.escape(lang)}"][data-key="${CSS.escape(key)}"]`);
+  if(!td) return;
+  const f = S.files.find(x => x.lang===lang);
+  if(!f) return;
+  const isOrphan = !!(f.orphan && f.orphan[key]);
+  const isEmpty = newVal === '';
+
+  // Remove existing tags
+  td.querySelectorAll('.tag.missing, .tag.orphan').forEach(t => t.remove());
+
+  // Re-insert tags before .cas
+  const cas = td.querySelector('.cas');
+  if(isEmpty && !isOrphan && lang !== S.master){
+    const tag = document.createElement('span');
+    tag.className = 'tag missing';
+    tag.textContent = '!';
+    cas ? td.querySelector('.ci').insertBefore(tag, cas) : td.querySelector('.ci').appendChild(tag);
+  }
+  if(isOrphan){
+    const tag = document.createElement('span');
+    tag.className = 'tag orphan';
+    tag.textContent = 'orphan';
+    cas ? td.querySelector('.ci').insertBefore(tag, cas) : td.querySelector('.ci').appendChild(tag);
+  }
+
+  // Update .ct classes
+  const ct = td.querySelector('.ct');
+  if(ct){
+    ct.classList.toggle('empty', isEmpty);
+    const hasPh = (getMaster()?.data[key]||'').includes('%s');
+    ct.classList.toggle('ph', hasPh);
+  }
+}
+
+function refreshKeyColTag(key, newVal){
+  // Update the ⚠ master tag in the key column
+  const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+  if(!row) return;
+  const kcInner = row.querySelector('.kc-inner');
+  if(!kcInner) return;
+  kcInner.querySelectorAll('.tag.warn').forEach(t => t.remove());
+  if(newVal === ''){
+    const tag = document.createElement('span');
+    tag.className = 'tag warn';
+    tag.title = 'Empty in master';
+    tag.textContent = '⚠ master';
+    kcInner.appendChild(tag);
+  }
+}
+
+function ckey(e,el){
+  if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); el.blur(); }
+  if(e.key==='Escape'){ el.textContent=el.dataset.before||''; el.blur(); }
+}
+
+// ══════════════════════════════════════════════
+//  COPY DROPDOWN
+// ══════════════════════════════════════════════
+let activeDD=null;
+function openCopyDD(e,tLang,key){
+  e.stopPropagation(); closeDD();
+  const srcs=S.files.filter(f=>f.lang!==tLang&&f.data[key]);
+  if(!srcs.length){ toast('No other language has a value for this key','wa'); return; }
+  const rect=e.currentTarget.getBoundingClientRect();
+  const dd=document.createElement('div');
+  dd.className='copy-dd';
+  dd.style.top=(rect.bottom+4)+'px';
+  dd.style.left=rect.left+'px';
+  dd.innerHTML='<div class="copy-dd-sep">Copy from…</div>';
+  for(const src of srcs){
+    const item=document.createElement('div');
+    item.className='copy-dd-item';
+    item.innerHTML=`${emoji(src.lang)} <strong>${esc(src.lang)}</strong> — ${esc((src.data[key]||'').substring(0,28))}${(src.data[key]||'').length>28?'…':''}`;
+    item.onclick=()=>{
+      pushUndo();
+      const t=S.files.find(f=>f.lang===tLang);
+      if(t) t.data[key]=src.data[key];
+      closeDD(); markDirty(); renderTable();
+      toast(`Copied from ${src.lang}`,'ok');
+    };
+    dd.appendChild(item);
+  }
+  document.body.appendChild(dd); activeDD=dd;
+  setTimeout(()=>document.addEventListener('click',closeDD,{once:true}),0);
+}
+function closeDD(){ if(activeDD){activeDD.remove();activeDD=null;} }
+
+// ══════════════════════════════════════════════
+//  KEY / CATEGORY MANAGEMENT
+// ══════════════════════════════════════════════
+function openAddKeyModal(afterKey){
+  const posOpts=buildPosOpts(afterKey,'after');
+  showModal(`
+    <h3>Add a key</h3>
+    <p>Adds a translation key to the master and all languages.</p>
+    <div class="fg"><label class="fl">Key</label><input class="fi2" id="m-key" placeholder="e.g. item.sword.name" autofocus></div>
+    <div class="fg"><label class="fl">English value (master)</label><input class="fi2" id="m-val" placeholder="e.g. Iron Sword"></div>
+    <div class="fg"><label class="fl">Insert at</label><select class="fi2" id="m-pos">${posOpts}</select></div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmAddKey()">Add key</button>
+    </div>`);
+  document.getElementById('m-key').focus();
+}
+function confirmAddKey(){
+  const key=(document.getElementById('m-key').value||'').trim();
+  const val=document.getElementById('m-val').value||'';
+  const pos=document.getElementById('m-pos').value;
+  if(!key){ toast('Key cannot be empty','er'); return; }
+  const m=getMaster();
+  if(m.data[key]!==undefined){ toast('This key already exists','er'); return; }
+  pushUndo();
+  m.data[key]=val;
+  insertAt(key,pos);
+  for(const f of getOthers()) f.data[key]='';
+  closeModal(); markDirty(); renderTable();
+  toast(`Key "${key}" added`,'ok');
+}
+
+function quickAdd(afterKey){ openAddKeyModal(afterKey); }
+
+function openAddCatModal(afterKey,posDefault){
+  const posOpts=buildPosOpts(afterKey,posDefault);
+  const existingCats=S.keyOrder.filter(k=>isCat(k));
+  const parentOpts='<option value="">— None (top level, 1 underscore) —</option>'+existingCats.map(k=>{
+    const d=catDepth(k); const lbl=getMaster()?.data[k]||k;
+    return `<option value="${esc(k)}">${'·'.repeat(d)} ${esc(lbl)} (depth ${d} → child depth ${d+1})</option>`;
+  }).join('');
+
+  showModal(`
+    <h3>Add a category</h3>
+    <p>Categories group keys visually. The number of underscores defines depth.</p>
+    <div class="fg"><label class="fl">Display name (label)</label>
+      <input class="fi2" id="m-clabel" placeholder="e.g. Weapons" oninput="autoGenCatName()" autofocus></div>
+    <div class="fg"><label class="fl">Internal name <span style="font-weight:400;opacity:.6">(auto-generated, editable)</span></label>
+      <input class="fi2" id="m-cname" placeholder="e.g. weapons"></div>
+    <div class="fg"><label class="fl">Parent category <span style="font-weight:400;opacity:.6">(sets depth automatically)</span></label>
+      <select class="fi2" id="m-cat-parent" onchange="updateCatDepth()">${parentOpts}</select></div>
+    <div class="fg"><label class="fl">Depth (underscores)</label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input class="fi2" type="number" id="m-cat-depth" value="1" min="1" max="20" style="width:80px" oninput="updateCatPreview()">
+        <span style="color:var(--text3);font-size:12px;font-family:var(--mono)" id="m-cat-pfx">_</span>
+        <span style="color:var(--text3);font-size:12px;font-family:var(--mono)" id="m-cat-full">_</span>
+      </div>
+    </div>
+    <div class="fg"><label class="fl">Insert at</label><select class="fi2" id="m-cpos">${posOpts}</select></div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmAddCat()">Add category</button>
+    </div>`);
+  document.getElementById('m-clabel').focus();
+}
+function autoGenCatName(){
+  const label=document.getElementById('m-clabel').value||'';
+  const auto=label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+  document.getElementById('m-cname').value=auto;
+  updateCatPreview();
+}
+function updateCatDepth(){
+  const pk=document.getElementById('m-cat-parent').value;
+  if(pk) document.getElementById('m-cat-depth').value=catDepth(pk)+1;
+  updateCatPreview();
+}
+function updateCatPreview(){
+  const d=Math.max(1,parseInt(document.getElementById('m-cat-depth').value)||1);
+  const name=(document.getElementById('m-cname').value||'').trim();
+  const pfx='_'.repeat(d);
+  document.getElementById('m-cat-pfx').textContent=pfx;
+  document.getElementById('m-cat-full').textContent=pfx+(name||'…');
+}
+function confirmAddCat(){
+  const depth=Math.max(1,parseInt(document.getElementById('m-cat-depth').value)||1);
+  const name=(document.getElementById('m-cname').value||'').trim();
+  const label=document.getElementById('m-clabel').value||'';
+  const pos=document.getElementById('m-cpos').value;
+  if(!name){ toast('Internal name cannot be empty','er'); return; }
+  const key='_'.repeat(depth)+name;
+  const m=getMaster();
+  if(m.data[key]!==undefined){ toast('This key already exists','er'); return; }
+  pushUndo();
+  m.data[key]=label;
+  insertAt(key,pos);
+  for(const f of getOthers()) f.data[key]='';
+  closeModal(); markDirty(); renderTable();
+  toast(`Category "${key}" added`,'ok');
+}
+
+function openEditCatModal(key){
+  const m=getMaster(); if(!m) return;
+  const d=catDepth(key);
+  const name=key.slice(d); // internal name without underscores
+  const label=m.data[key]||'';
+  showModal(`
+    <h3>Edit category</h3>
+    <p>You can rename the display label, change the internal name, or change the depth level.</p>
+    <div class="fg"><label class="fl">Display label (en_us)</label>
+      <input class="fi2" id="ec-label" value="${esc(label)}" autofocus></div>
+    <div class="fg"><label class="fl">Internal name</label>
+      <input class="fi2" id="ec-name" value="${esc(name)}"></div>
+    <div class="fg"><label class="fl">Depth (underscores)</label>
+      <input class="fi2" type="number" id="ec-depth" value="${d}" min="1" max="20" style="width:80px"></div>
+    <div style="font-size:11px;color:var(--text3);margin-bottom:14px;font-family:var(--mono)" id="ec-preview">Key: ${esc(key)}</div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmEditCat('${esc(key)}')">Save</button>
+    </div>`);
+  ['ec-name','ec-depth'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{
+    const nd=Math.max(1,parseInt(document.getElementById('ec-depth').value)||1);
+    const nn=(document.getElementById('ec-name').value||'').trim();
+    document.getElementById('ec-preview').textContent='Key: '+'_'.repeat(nd)+nn;
+  }));
+}
+function confirmEditCat(oldKey){
+  const d=Math.max(1,parseInt(document.getElementById('ec-depth').value)||1);
+  const name=(document.getElementById('ec-name').value||'').trim();
+  const label=document.getElementById('ec-label').value||'';
+  if(!name){ toast('Internal name cannot be empty','er'); return; }
+  const newKey='_'.repeat(d)+name;
+  const m=getMaster();
+  if(newKey!==oldKey&&m.data[newKey]!==undefined){ toast('This key already exists','er'); return; }
+  pushUndo();
+  // Rename in all files and keyOrder
+  for(const f of S.files){
+    if(oldKey in f.data){ f.data[newKey]=f.data[oldKey]; if(newKey!==oldKey) delete f.data[oldKey]; }
+  }
+  const idx=S.keyOrder.indexOf(oldKey);
+  if(idx>=0) S.keyOrder[idx]=newKey;
+  // Update label in master
+  getMaster().data[newKey]=label;
+  closeModal(); markDirty(); renderTable();
+  toast(`Category updated → ${newKey}`,'ok');
+}
+
+function deleteCat(key){
+  const children=catChildren(key);
+  showConfirm(
+    `Delete category <strong>${esc(key)}</strong> and all <strong>${children.length}</strong> child key(s)?`,
+    ()=>{
+      pushUndo();
+      const toDelete=[key,...children];
+      for(const f of S.files) for(const k of toDelete){ delete f.data[k]; }
+      S.keyOrder=S.keyOrder.filter(k=>!toDelete.includes(k));
+      markDirty(); renderTable(); toast(`Category and ${children.length} child(ren) deleted`,'in');
+    }
+  );
+}
+
+function deleteKey(key){
+  showConfirm(
+    `Delete key <strong>${esc(key)}</strong> from all languages?`,
+    ()=>{
+      pushUndo();
+      for(const f of S.files){ delete f.data[key]; }
+      S.keyOrder=S.keyOrder.filter(k=>k!==key);
+      markDirty(); renderTable(); toast(`"${key}" deleted`,'in');
+    }
+  );
+}
+
+function promoteOrphan(key){
+  const m=getMaster(); if(!m) return;
+  pushUndo();
+  m.data[key]='';
+  S.keyOrder.push(key);
+  sync(); markDirty(); renderTable();
+  toast(`"${key}" added to master`,'wa');
+}
+
+function buildPosOpts(afterKey,posDefault){
+  // afterKey: the key to pre-select; posDefault 'after' means select 'after:afterKey'
+  const isAfter = posDefault==='after' && !!afterKey;
+  let opts=`<option value="end"${!isAfter?' selected':''}>End of file</option>`;
+  opts+=`<option value="start">Beginning of file</option>`;
+  for(const k of S.keyOrder){
+    const sel = isAfter && k===afterKey ? ' selected' : '';
+    opts+=`<option value="after:${esc(k)}"${sel}>After ${esc(k)}</option>`;
+  }
+  return opts;
+}
+
+function insertAt(key,pos){
+  if(pos==='end') S.keyOrder.push(key);
+  else if(pos==='start') S.keyOrder.unshift(key);
+  else {
+    const afterKey=pos.replace('after:','');
+    const idx=S.keyOrder.indexOf(afterKey);
+    if(idx>=0) S.keyOrder.splice(idx+1,0,key);
+    else S.keyOrder.push(key);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  SELECTION & BATCH
+// ══════════════════════════════════════════════
+function toggleSelectAll(v){ S.sel=v?new Set(S.keyOrder.filter(k=>!isCat(k))):new Set(); lastClickedKey=null; renderTable(); }
+function clearSel(){ S.sel=new Set(); lastClickedKey=null; renderTable(); }
+function updateBatchBar(){ const n=S.sel.size; document.getElementById('batch-bar').classList.toggle('on',n>0); document.getElementById('batchn').textContent=n; }
+function batchDelete(){
+  const n=S.sel.size;
+  showConfirm(
+    `Delete <strong>${n}</strong> key(s) from all languages?`,
+    ()=>{ pushUndo(); for(const k of S.sel){ for(const f of S.files){ delete f.data[k]; } S.keyOrder=S.keyOrder.filter(x=>x!==k); } markDirty(); toast(`${n} key(s) deleted`,'in'); clearSel(); }
+  );
+}
+
+// ══════════════════════════════════════════════
+//  TABLE WIDTH HELPER (for independent resize)
+// ══════════════════════════════════════════════
+function updateTableWidth(){
+  const ths = document.querySelectorAll('thead th');
+  if(!ths.length) return;
+  let total = 0;
+  ths.forEach(th => { total += th.offsetWidth || parseInt(th.style.width)||0; });
+  const tbl = document.getElementById('tbl');
+  if(tbl) tbl.style.minWidth = Math.max(total,500)+'px';
+}
+
+// ══════════════════════════════════════════════
+//  CATEGORY SELECTION
+// ══════════════════════════════════════════════
+function catSelChange(catKey, checked){
+  catChildren(catKey).filter(k=>!buildHidden().has(k))
+    .forEach(k=>{ if(checked) S.sel.add(k); else S.sel.delete(k); });
+  updateBatchBar(); renderTable();
+}
+
+// ══════════════════════════════════════════════
+//  INSERT BETWEEN ROWS (+ button)
+// ══════════════════════════════════════════════
+function openInsertModal(afterKey){
+  // Store key globally — it stays valid even after the modal re-renders the DOM
+  _insertAfterKey = afterKey;
+  showModal(`
+    <h3>Insert after <code>${esc(afterKey)}</code></h3>
+    <p>What do you want to add immediately after this row?</p>
+    <div class="md-act" style="justify-content:center;gap:12px;margin-top:10px">
+      <button class="tb-btn primary" style="min-width:120px" onclick="closeModal();openAddKeyModal(_insertAfterKey)">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="13" height="13"><path d="M12 5v14M5 12h14"/></svg>
+        Add key
+      </button>
+      <button class="tb-btn" style="min-width:120px" onclick="closeModal();openAddCatModal(_insertAfterKey,'after')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="13" height="13"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Add category
+      </button>
+    </div>`);
+}
+
+// ══════════════════════════════════════════════
+//  SET MASTER via sidebar
+// ══════════════════════════════════════════════
+function askSetMaster(lang){
+  showConfirm(
+    `Set <strong>${esc(lang)}.json</strong> as the master language?<br><span style="color:var(--text2);font-size:12px">All other files will be synced to its keys.</span>`,
+    ()=>{ S.master=lang; rebuildKeyOrder(); sync(); renderSidebar(); renderTable(); toast(`"${lang}" is now the master`,'ok'); },
+    { title:'Change master language', confirmLabel:'Set as master', danger:false }
+  );
+}
+
+// ══════════════════════════════════════════════
+//  MODALS
+// ══════════════════════════════════════════════
+function showModal(html){ document.getElementById('modal-root').innerHTML=`<div class="mo" onclick="if(event.target===this)closeModal()"><div class="md">${html}</div></div>`; }
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+// ── showConfirm — replaces all native confirm() dialogs ──
+// message: HTML string, onOk: callback, opts: {title, confirmLabel, danger}
+function showConfirm(message, onOk, opts={}){
+  const title = opts.title || 'Confirm';
+  const label = opts.confirmLabel || 'Confirm';
+  const cls   = opts.danger===false ? 'primary' : 'danger';
+  // We store the callback in a temporary global to call it safely from onclick
+  window._confirmCb = onOk;
+  showModal(`
+    <h3>${title}</h3>
+    <p style="line-height:1.65">${message}</p>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn ${cls}" onclick="closeModal();window._confirmCb&&window._confirmCb();window._confirmCb=null">${label}</button>
+    </div>`);
+}
+
+function openNewLangModal(){
+  showModal(`
+    <h3>New language file</h3>
+    <p>Create a brand-new language from scratch.</p>
+    <div class="fg"><label class="fl">Language code</label><input class="fi2" id="m-nlcode" placeholder="e.g. fr_fr" autofocus></div>
+    <div class="fg"><label class="toggle-wrap" for="m-prefill"><input type="checkbox" id="m-prefill" checked><div class="toggle-track"><div class="toggle-thumb"></div></div><span class="toggle-label">Pre-fill with master values</span></label></div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmNewLang()">Create</button>
+    </div>`);
+  document.getElementById('m-nlcode').focus();
+}
+function confirmNewLang(){
+  const code=(document.getElementById('m-nlcode').value||'').trim().toLowerCase().replace(/\s+/g,'_');
+  const prefill=document.getElementById('m-prefill').checked;
+  if(!code){ toast('Code cannot be empty','er'); return; }
+  if(S.files.find(f=>f.lang===code)){ toast('This language already exists','er'); return; }
+  const m=getMaster();
+  const nf={filename:code+'.json',lang:code,data:{},orphan:{}};
+  if(m) for(const k of S.keyOrder) nf.data[k]=prefill?(m.data[k]||''):'';
+  pushUndo();
+  S.files.push(nf);
+  closeModal(); markDirty(); renderTable();
+  toast(`Language "${code}" created${prefill?' (pre-filled)':''}`, 'ok');
+}
+
+function openPickMasterModal(){
+  const opts=S.files.map(f=>`<option value="${esc(f.lang)}" ${f.lang===S.master?'selected':''}>${esc(f.lang)}.json</option>`).join('');
+  showModal(`
+    <h3>Change master language</h3>
+    <p>The master language defines all keys. Choosing a different master will re-sync all other languages.</p>
+    <div class="fg"><label class="fl">Master file</label><select class="fi2" id="m-master">${opts}</select></div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmMaster()">Confirm</button>
+    </div>`);
+}
+function confirmMaster(){
+  S.master=document.getElementById('m-master').value;
+  closeModal(); rebuildKeyOrder(); sync(); showProject();
+  toast(`"${S.master}" set as master`,'ok');
+}
+
+// ══════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════
+async function exportAll(){
+  if(!S.files.length) return;
+  const m=getMaster();
+
+  function buildOrdered(f){
+    const out={};
+    for(const k of S.keyOrder){
+      if(!(k in f.data)) continue;
+      // For category keys in non-master files: if empty, fall back to master label
+      if(isCat(k)&&f.lang!==S.master&&!f.data[k]){
+        out[k]=m?.data[k]||'';
+      } else {
+        out[k]=f.data[k];
+      }
+    }
+    for(const k of Object.keys(f.data)) if(!(k in out)) out[k]=f.data[k];
+    return out;
+  }
+
+  if(S.files.length===1){
+    const f=S.files[0];
+    dl(JSON.stringify(buildOrdered(f),null,2),f.filename);
+    markClean(); toast('File exported','ok'); return;
+  }
+  const zip=new JSZip();
+  for(const f of S.files) zip.file(f.filename,JSON.stringify(buildOrdered(f),null,2));
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='langsync_export.zip'; a.click();
+  URL.revokeObjectURL(url);
+  markClean(); toast(`${S.files.length} files exported as ZIP`,'ok');
+}
+function dl(text,filename){
+  const b=new Blob([text],{type:'application/json'});
+  const u=URL.createObjectURL(b);
+  const a=document.createElement('a'); a.href=u; a.download=filename; a.click();
+  URL.revokeObjectURL(u);
+}
+
+// ══════════════════════════════════════════════
+//  UNDO / REDO
+// ══════════════════════════════════════════════
+function pushUndo(){
+  S.undo.push(JSON.parse(JSON.stringify({files:S.files,keyOrder:S.keyOrder,master:S.master,collapsed:S.collapsed})));
+  if(S.undo.length>50) S.undo.shift();
+  S.redo=[];
+  updateUndoRedoBtns();
+}
+function doUndo(){
+  if(!S.undo.length) return;
+  S.redo.push(JSON.parse(JSON.stringify({files:S.files,keyOrder:S.keyOrder,master:S.master,collapsed:S.collapsed})));
+  const s=S.undo.pop(); S.files=s.files; S.keyOrder=s.keyOrder; S.master=s.master; S.collapsed=s.collapsed||{};
+  renderTable(); markDirty(); toast('Undone','in');
+}
+function doRedo(){
+  if(!S.redo.length) return;
+  S.undo.push(JSON.parse(JSON.stringify({files:S.files,keyOrder:S.keyOrder,master:S.master,collapsed:S.collapsed})));
+  const s=S.redo.pop(); S.files=s.files; S.keyOrder=s.keyOrder; S.master=s.master; S.collapsed=s.collapsed||{};
+  renderTable(); markDirty(); toast('Redone','in');
+}
+function updateUndoRedoBtns(){
+  const bu=document.getElementById('btn-undo');
+  const br=document.getElementById('btn-redo');
+  if(bu) bu.disabled=S.undo.length===0;
+  if(br) br.disabled=S.redo.length===0;
+}
+
+// ══════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  const mod=e.ctrlKey||e.metaKey;
+  if(mod&&e.key==='z'&&!e.shiftKey){ e.preventDefault(); doUndo(); }
+  if(mod&&(e.key==='y'||(e.key==='z'&&e.shiftKey))){ e.preventDefault(); doRedo(); }
+  if(mod&&e.key==='s'){ e.preventDefault(); if(S.files.length) exportAll(); }
+  if(mod&&e.key==='o'){ e.preventDefault(); document.getElementById('fi').click(); }
+});
+
+// ══════════════════════════════════════════════
+//  GLOBAL DRAG & DROP (file drop)
+// ══════════════════════════════════════════════
+let gdcnt=0;
+document.addEventListener('dragenter',e=>{
+  if(dragSrcKey) return;
+  if(!(e.dataTransfer?.types||[]).includes('Files')) return;
+  gdcnt++; document.getElementById('gdo').classList.add('show');
+});
+document.addEventListener('dragleave',e=>{
+  if(dragSrcKey) return;
+  if(!(e.dataTransfer?.types||[]).includes('Files')) return;
+  gdcnt--; if(gdcnt<=0){ gdcnt=0; document.getElementById('gdo').classList.remove('show'); }
+});
+document.addEventListener('dragover',e=>{
+  if(dragSrcKey) return;
+  if((e.dataTransfer?.types||[]).includes('Files')) e.preventDefault();
+});
+document.addEventListener('drop',e=>{
+  if(dragSrcKey) return;
+  gdcnt=0; document.getElementById('gdo').classList.remove('show');
+  const hasFiles=(e.dataTransfer?.types||[]).includes('Files')&&(e.dataTransfer?.files?.length||0)>0;
+  if(!hasFiles) return;
+  e.preventDefault();
+  const files=Array.from(e.dataTransfer.files||[]).filter(f=>f.name.endsWith('.json'));
+  if(!files.length){ toast('No valid .json files detected','er'); return; }
+  loadFiles(files);
+});
+
+// ══════════════════════════════════════════════
+//  ALERTS
+// ══════════════════════════════════════════════
+function toast(msg,type='in'){
+  const icons={ok:'✓',er:'✗',in:'ℹ',wa:'⚠'};
+  const el=document.createElement('div');
+  el.className=`al ${type}`;
+  el.innerHTML=`<span>${icons[type]}</span>${esc(msg)}`;
+  document.getElementById('alerts').appendChild(el);
+  setTimeout(()=>el.remove(),3200);
+}
+</script>
+</body>
+</html>
