@@ -10,3 +10,5 @@ I'm not here to take credit for an app that I didn't code myself and that I woul
 You can use existing `.json` language files or create them from scratch.
 The app will display all the translation keys you create and give you a good overview of all your files, allowing you to see if any translations are missing and even sort your keys by creating categories and subcategories!
 Once exported, the lang files will all be created with the same hierarchy and order. They will all be unified.
+
+## [Go to APP](https://sozoka.github.io/LangSync/)
