@@ -1,4 +1,4 @@
-# [LangSync](https://sozoka.github.io/LangSync/))
+# [LangSync](https://sozoka.github.io/LangSync/)
 App to help generate and maintain lang files for Minecraft resourcepacks.
 
 ## App coded by an idiot.
