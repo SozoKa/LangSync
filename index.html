@@ -2389,6 +2389,7 @@ function openShortcutsModal(){
         <tr class="sc-group"><td colspan="3">Insertion</td></tr>
         ${row('Ctrl+K','Add key after focused row')}
         ${row('Ctrl+Shift+K','Add category after focused row')}
+        ${row('Ctrl+L','Add new language file')}
         <tr class="sc-group"><td colspan="3">Search</td></tr>
         ${row('/ or Ctrl+F','Focus search bar')}
         ${row('Escape','Clear search, return to table','When search bar focused')}
@@ -2415,6 +2416,7 @@ document.addEventListener('keydown',e=>{
   if(mod && e.key==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); return; }
   if(mod && e.key==='z' &&  e.shiftKey){ e.preventDefault(); doRedo(); return; }
   if(mod && e.key==='s'){ e.preventDefault(); if(hasFiles) exportAll(); return; }
+  if(mod && !e.shiftKey && e.key.toLowerCase()==='l'){ e.preventDefault(); openNewLangModal(); return; }
 
   // ── Ctrl+Shift+A: deselect all (opposite of select all) ──
   if(mod && e.shiftKey && e.key.toLowerCase()==='a'){
