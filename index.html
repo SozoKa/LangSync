@@ -125,6 +125,17 @@ th.key-col-hdr{padding:0!important}
 .ldel:hover{color:var(--red)!important;background:rgba(224,82,82,.1)}
 #add-lang-wrap{display:none;padding:4px 8px 12px;flex-direction:column;gap:5px}
 .alb{display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border:1px dashed var(--border);border-radius:6px;cursor:pointer;font-size:11.5px;font-weight:600;color:var(--text3);transition:all .14s}
+.fe-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;border:1px solid var(--border);margin-bottom:5px;background:var(--bg2)}
+.fe-input{flex:1;background:transparent;border:none;outline:none;font-family:var(--mono);font-size:12px;color:var(--text);padding:3px 5px;border-radius:4px;min-width:0;border:1px solid transparent}
+.fe-input:focus{background:var(--bg4);border-color:var(--border)}
+.fe-ext{color:var(--text3);font-size:11px;font-family:var(--mono);white-space:nowrap}
+.fe-master-btn{font-size:10px;padding:2px 8px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;white-space:nowrap;font-family:var(--sans);transition:all .12s}
+.fe-master-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);pointer-events:none}
+.fe-del{padding:3px 6px;border-radius:4px;border:none;background:transparent;color:var(--text3);cursor:pointer;font-size:14px;transition:color .12s;line-height:1}
+.fe-del:hover{color:var(--red)}
+.fe-mv{width:20px;height:20px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text3);cursor:pointer;font-size:10px;line-height:1;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0}
+.fe-mv:hover{color:var(--text);border-color:var(--text3)}
+.fe-mv:disabled{opacity:.25;pointer-events:none}
 .alb:hover{border-color:var(--accent);color:var(--accent);background:var(--bg3)}
 .alb.acc{border-color:var(--accent);color:var(--accent)}
 .alb.acc:hover{background:rgba(91,138,240,.07)}
@@ -462,8 +473,9 @@ td.cat-kc{white-space:normal;overflow:hidden;vertical-align:middle;}
 .fi2::placeholder{color:var(--text3)}
 select.fi2{cursor:pointer}
 .toggle-wrap{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
-.toggle-wrap input[type=checkbox]{display:none}
-.toggle-track{width:34px;height:18px;background:var(--bg4);border:1px solid var(--border);border-radius:9px;position:relative;transition:background .2s,border-color .2s;flex-shrink:0}
+.toggle-wrap input[type=checkbox]{position:absolute;opacity:0;width:0;height:0;pointer-events:none;tabindex:-1}
+.toggle-track{width:34px;height:18px;background:var(--bg4);border:1px solid var(--border);border-radius:9px;position:relative;transition:background .2s,border-color .2s;flex-shrink:0;cursor:pointer}
+.toggle-track:focus{outline:2px solid var(--accent);outline-offset:2px}
 .toggle-wrap input:checked+.toggle-track{background:var(--accent);border-color:var(--accent)}
 .toggle-thumb{position:absolute;top:2px;left:2px;width:12px;height:12px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .toggle-wrap input:checked+.toggle-track .toggle-thumb{left:16px}
@@ -587,6 +599,9 @@ code{background:var(--bg4);padding:1px 5px;border-radius:4px;font-family:var(--m
       <div class="alb" onclick="document.getElementById('fi').click()">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Import existing JSON
       </div>
+      <div class="alb" onclick="openEditFilesModal()">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>Edit file names &amp; order
+      </div>
     </div>
   </div>
 
@@ -620,7 +635,7 @@ code{background:var(--bg4);padding:1px 5px;border-radius:4px;font-family:var(--m
         <button class="ftab on" id="tab-all"     onclick="setTab('all')">All</button>
         <button class="ftab"    id="tab-missing" onclick="setTab('missing')">Missing<span class="ftab-c" id="tc-missing">0</span></button>
         <button class="ftab"    id="tab-ph"      onclick="setTab('ph')">%s<span class="ftab-c" id="tc-ph">0</span></button>
-        <button class="ftab"    id="tab-orphan"  onclick="setTab('orphan')">Orphan<span class="ftab-c" id="tc-orphan">0</span></button>
+
         <div class="sep"></div>
         <label style="font-size:12px;color:var(--text3);display:flex;align-items:center;gap:6px;cursor:pointer">
           <input type="checkbox" id="sel-all" onchange="toggleSelectAll(this.checked)" style="accent-color:var(--accent)">Select all
@@ -792,16 +807,34 @@ async function _doLoadFiles(list){
 
 function startFresh(){
   if(S.dirty){
-    showConfirm('You have <strong>unsaved changes</strong>. Start fresh anyway?', _doStartFresh);
+    showConfirm('You have <strong>unsaved changes</strong>. Start fresh anyway?', _askFreshMaster);
     return;
   }
-  _doStartFresh();
+  _askFreshMaster();
 }
-function _doStartFresh(){
-  S.files=[{filename:'en_us.json',lang:'en_us',data:{},orphan:{}}];
-  S.master='en_us'; S.keyOrder=[]; S.collapsed={}; S.sel=new Set(); S.undo=[]; S.redo=[];
+function _askFreshMaster(){
+  showModal(`
+    <h3>New project</h3>
+    <p style="color:var(--text2);font-size:12.5px">Choose the name for your master language file.</p>
+    <div class="fg"><label class="fl">Master file name</label>
+      <div style="display:flex;align-items:center;gap:6px">
+        <input class="fi2" id="m-fresh-name" placeholder="e.g. en_us" value="en_us" autofocus style="flex:1">
+        <span style="color:var(--text3);font-size:12px;font-family:var(--mono)">.json</span>
+      </div>
+    </div>
+    <div class="md-act">
+      <button class="tb-btn" onclick="closeModal()">Cancel</button>
+      <button class="tb-btn primary" onclick="confirmFreshMaster()">Create project</button>
+    </div>`);
+}
+function confirmFreshMaster(){
+  const raw=(document.getElementById('m-fresh-name').value||'').trim();
+  const name=raw.replace(/\.json$/i,'').replace(/[^a-zA-Z0-9_\-]/g,'_')||'en_us';
+  closeModal();
+  S.files=[{filename:name+'.json',lang:name,data:{},orphan:{}}];
+  S.master=name; S.keyOrder=[]; S.collapsed={}; S.sel=new Set(); S.undo=[]; S.redo=[];
   sync(); showProject(); markClean();
-  toast('Empty project created!','in');
+  toast(`Project created — master: ${name}.json`,'ok');
 }
 
 function rebuildKeyOrder(){
@@ -813,11 +846,21 @@ function rebuildKeyOrder(){
 
 function sync(){
   const m=getMaster(); if(!m) return;
+  // Pass 1: absorb keys from non-master files not yet in keyOrder → add as empty master keys
+  for(const f of S.files){
+    if(f.lang===S.master) continue;
+    for(const k of Object.keys(f.data)){
+      if(!S.keyOrder.includes(k) && !isCat(k)){
+        m.data[k]='';        // empty in master → shows ⚠ master tag
+        S.keyOrder.push(k);
+      }
+    }
+  }
+  // Pass 2: ensure every file has every key; clear orphan maps
   for(const f of S.files){
     if(f.lang===S.master){f.orphan={};continue;}
     for(const k of S.keyOrder) if(!(k in f.data)) f.data[k]='';
-    f.orphan={};
-    for(const k of Object.keys(f.data)) if(!S.keyOrder.includes(k)) f.orphan[k]=true;
+    f.orphan={}; // all keys are now in keyOrder, none remain orphaned
   }
 }
 
@@ -843,7 +886,7 @@ function renderSidebar(){
   let html='';
   for(const f of S.files){
     const nonEmpty=Object.entries(f.data).filter(([k,v])=>!isCat(k)&&v!=='').length;
-    const pct=f.lang===S.master?100:Math.round(nonEmpty/total*100);
+    const pct=Math.round(nonEmpty/total*100);
     const cls=pct>=80?'':pct>=50?'med':'lo';
     const isMaster=f.lang===S.master;
     html+=`
@@ -1318,10 +1361,6 @@ function renderTable(){
   setTimeout(()=>{ initColResizers(); requestAnimationFrame(syncRowHeights); _insLocked=false; _kbRestoreFocus(); }, 20);
 
   // Orphan keys
-  const orphanKeys = [];
-  for(const f of others) for(const k of Object.keys(f.orphan||{}))
-    if(!S.keyOrder.includes(k) && !orphanKeys.includes(k)) orphanKeys.push(k);
-
   const hidden = buildHidden();
   const filtering = (tab !== 'all') || !!search;
   let rKey='', rLang='';
@@ -1332,7 +1371,7 @@ function renderTable(){
     total++;
     const v = m.data[k]??'';
     if(v.includes('%s')) phc++;
-    if(others.some(f=>f.data[k]===''||f.data[k]==null)) miss++;
+    if(v==='' || others.some(f=>f.data[k]===''||f.data[k]==null)) miss++;
   }
 
   for(const key of S.keyOrder){
@@ -1364,21 +1403,15 @@ function renderTable(){
     } else {
       const hasPh=val.includes('%s');
       const indent=getEntryIndent(key),pl=12+indent*16,masterEmpty=val==='';
-      const anyMissing=others.some(f=>f.data[key]===''||f.data[key]==null);
+      const anyMissing=masterEmpty||others.some(f=>f.data[key]===''||f.data[key]==null);
       const trA=`class="${S.sel.has(key)?'sel':''}" data-key="${esc(key)}" ondragstart="dstart(event,'${esc(key)}')" ondragover="dover(event,'${esc(key)}')" ondrop="ddrop(event,'${esc(key)}')" onclick="handleRowClick(event,'${esc(key)}')"`;
-      rKey+=`<tr ${trA}><td onclick="event.stopPropagation()"><input type="checkbox" style="accent-color:var(--accent)" ${S.sel.has(key)?'checked':''} onchange="toggleSel('${esc(key)}',this.checked)"></td><td class="kc key-col" style="padding-left:${pl}px"><div class="kc-inner"><span class="drag-handle" title="Drag to reorder"><svg xmlns='http://www.w3.org/2000/svg' width='10' height='16' viewBox='0 0 10 16' fill='currentColor'><circle cx='2' cy='2' r='1.5'/><circle cx='8' cy='2' r='1.5'/><circle cx='2' cy='6' r='1.5'/><circle cx='8' cy='6' r='1.5'/><circle cx='2' cy='10' r='1.5'/><circle cx='8' cy='10' r='1.5'/><circle cx='2' cy='14' r='1.5'/><circle cx='8' cy='14' r='1.5'/></svg></span><span class="key-name" contenteditable="true" spellcheck="false" title="Click to rename key" data-key="${esc(key)}" onfocus="keyNameFocus(this)" onblur="keyNameBlur(this)" onkeydown="keyNameKeydown(event,this)" onclick="event.stopPropagation()">${esc(key)}</span>${masterEmpty?'<span class="tag warn" title="Empty in master">⚠ master</span>':''}<div class="kc-actions" onclick="event.stopPropagation()"><button class="cb ed" title="Rename key" onclick="(()=>{const s=this.closest('td').querySelector('.key-name');if(s){s.focus();const r=document.createRange();r.selectNodeContents(s);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}})()">${ICON_EDIT}</button><button class="cb dl" title="Delete key" onclick="deleteKey('${esc(key)}')">${ICON_TRASH}</button></div></div></td></tr>`;
-      rLang+=`<tr ${trA}><td class="vc" data-lang="${esc(S.master)}" data-key="${esc(key)}"><div class="ci"><div class="ct${masterEmpty?' empty':''}${hasPh?' ph':''}" contenteditable="true" onfocus="sedit(this)" onblur="cedit(this,'${esc(S.master)}','${esc(key)}')" onkeydown="ckey(event,this)">${esc(val)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div><div class="cas"><button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(S.master)}','${esc(key)}')">${ICON_COPY}</button></div></div></td>`;
-      for(const f of others){const fv=f.data[key]??'',isEmpty=fv==='',isOrphan=!!(f.orphan&&f.orphan[key]);rLang+=`<td class="vc" data-lang="${esc(f.lang)}" data-key="${esc(key)}"><div class="ci"><div class="ct${isEmpty?' empty':''}${hasPh?' ph':''}" contenteditable="true" onfocus="sedit(this)" onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)">${esc(fv)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div>${isEmpty&&!isOrphan?`<span class="tag missing" data-tag="missing-${esc(f.lang)}">!</span>`:''}${isOrphan?'<span class="tag orphan">orphan</span>':''}<div class="cas"><button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(f.lang)}','${esc(key)}')">${ICON_COPY}</button></div></div></td>`;}
+      rKey+=`<tr ${trA}><td onclick="event.stopPropagation()"><input type="checkbox" style="accent-color:var(--accent)" ${S.sel.has(key)?'checked':''} onchange="toggleSel('${esc(key)}',this.checked)"></td><td class="kc key-col" style="padding-left:${pl}px"><div class="kc-inner"><span class="drag-handle" title="Drag to reorder"><svg xmlns='http://www.w3.org/2000/svg' width='10' height='16' viewBox='0 0 10 16' fill='currentColor'><circle cx='2' cy='2' r='1.5'/><circle cx='8' cy='2' r='1.5'/><circle cx='2' cy='6' r='1.5'/><circle cx='8' cy='6' r='1.5'/><circle cx='2' cy='10' r='1.5'/><circle cx='8' cy='10' r='1.5'/><circle cx='2' cy='14' r='1.5'/><circle cx='8' cy='14' r='1.5'/></svg></span><span class="key-name" contenteditable="true" spellcheck="false" title="Click to rename key" data-key="${esc(key)}" onfocus="keyNameFocus(this)" onblur="keyNameBlur(this)" onkeydown="keyNameKeydown(event,this)" onclick="event.stopPropagation()">${esc(key)}</span>${anyMissing?'<span class="tag missing">missing</span>':''}<div class="kc-actions" onclick="event.stopPropagation()"><button class="cb ed" title="Rename key" onclick="(()=>{const s=this.closest('td').querySelector('.key-name');if(s){s.focus();const r=document.createRange();r.selectNodeContents(s);const sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}})()">${ICON_EDIT}</button><button class="cb dl" title="Delete key" onclick="deleteKey('${esc(key)}')">${ICON_TRASH}</button></div></div></td></tr>`;
+      rLang+=`<tr ${trA}><td class="vc" data-lang="${esc(S.master)}" data-key="${esc(key)}"><div class="ci"><div class="ct${masterEmpty?' empty':''}${hasPh?' ph':''}" contenteditable="true" onfocus="sedit(this)" onblur="cedit(this,'${esc(S.master)}','${esc(key)}')" onkeydown="ckey(event,this)">${esc(val)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div>${masterEmpty?`<span class="tag missing" data-tag="missing-${esc(S.master)}">!</span>`:''}<div class="cas"><button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(S.master)}','${esc(key)}')">${ICON_COPY}</button></div></div></td>`;
+      for(const f of others){const fv=f.data[key]??'',isEmpty=fv==='';rLang+=`<td class="vc" data-lang="${esc(f.lang)}" data-key="${esc(key)}"><div class="ci"><div class="ct${isEmpty?' empty':''}${hasPh?' ph':''}" contenteditable="true" onfocus="sedit(this)" onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)">${esc(fv)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div>${isEmpty?`<span class="tag missing" data-tag="missing-${esc(f.lang)}">!</span>`:''}<div class="cas"><button class="cb cp" title="Copy from…" onclick="openCopyDD(event,'${esc(f.lang)}','${esc(key)}')">${ICON_COPY}</button></div></div></td>`;}
       rLang+='</tr>';
     }
   }
-  if(tab==='all'||tab==='orphan'){for(const key of orphanKeys){
-    if(search&&!matchSearch(key,search,m,others)) continue;
-    rKey+=`<tr data-key="${esc(key)}"><td onclick="event.stopPropagation()"><input type="checkbox" style="accent-color:var(--accent)" ${S.sel.has(key)?'checked':''} onchange="toggleSel('${esc(key)}',this.checked)"></td><td class="kc key-col"><div class="kc-inner"><span>${esc(key)}</span><span class="tag orphan">orphan</span></div></td></tr>`;
-    rLang+=`<tr data-key="${esc(key)}"><td style="color:var(--text3);font-style:italic;font-size:11px;vertical-align:middle">not in master</td>`;
-    for(const f of others){const fv=f.data[key]??'';rLang+=`<td class="vc"><div class="ci"><div class="ct${!fv?' empty':''}" contenteditable="true" onfocus="sedit(this)" onblur="cedit(this,'${esc(f.lang)}','${esc(key)}')" onkeydown="ckey(event,this)">${esc(fv)||'<span style="color:var(--text3);font-style:italic">— empty —</span>'}</div></div></td>`;}
-    rLang+=`<td><button class="tb-btn" style="font-size:11px;padding:3px 7px;white-space:nowrap" onclick="promoteOrphan('${esc(key)}')">Add to master</button></td></tr>`;
-  }}
+
   const emptyMsg='<tr><td colspan="3"><div class="empty-state"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><p>No results for this filter</p></div></td></tr>';
   document.getElementById('tbody-key').innerHTML=rKey||emptyMsg;
   document.getElementById('tbody-lang').innerHTML=rLang||emptyMsg;
@@ -1387,14 +1420,15 @@ function renderTable(){
   document.getElementById('st-miss').textContent = miss;
   document.getElementById('st-ph').textContent = phc;
 
-  let cm=0, cp=0, co=orphanKeys.length;
+  let cm=0, cp=0;
   for(const k of S.keyOrder.filter(k => !isCat(k))){
     if((m.data[k]||'').includes('%s')) cp++;
-    for(const f of others) if(!f.data[k]) cm++;
+    // Count key as missing if ANY file (master included) has empty value
+    const mv = m.data[k]??'';
+    if(mv==='' || others.some(f=>f.data[k]===''||f.data[k]==null)) cm++;
   }
   document.getElementById('tc-missing').textContent = cm;
   document.getElementById('tc-ph').textContent = cp;
-  document.getElementById('tc-orphan').textContent = co;
 
   renderSidebar();
   updateBatchBar();
@@ -1404,8 +1438,8 @@ function renderTable(){
 function matchTab(key,tab,m,others){
   if(tab==='all') return true;
   if(tab==='ph') return (m.data[key]||'').includes('%s');
-  if(tab==='missing') return others.some(f=>!f.data[key]);
-  if(tab==='orphan') return others.some(f=>f.orphan&&f.orphan[key]);
+  if(tab==='missing') return (m.data[key]==='' || m.data[key]==null) || others.some(f=>!f.data[key]);
+
   return true;
 }
 function matchSearch(key,s,m,others){
@@ -1460,11 +1494,37 @@ function cedit(el, lang, key){
 
   // Live-refresh tags on the affected td without full re-render
   refreshCellTags(lang, key, v);
-  // Also refresh master-empty warning on the key cell
-  if(lang === S.master) refreshKeyColTag(key, v);
+  // Refresh missing tag on key column whenever any lang changes
+  refreshKeyColTag(key);
+  // Update missing counters (stat bar + tab badge) without full re-render
+  refreshMissingCount();
 
   renderSidebar();
   updateUndoRedoBtns();
+}
+
+function refreshMissingCount(){
+  // Recount and push to both the stat bar and the tab badge
+  const m = getMaster(); if(!m) return;
+  const others = getOthers();
+  let miss=0, total=0, phc=0;
+  for(const k of S.keyOrder){
+    if(isCat(k)) continue;
+    total++;
+    const v = m.data[k]??'';
+    if(v.includes('%s')) phc++;
+    if(v==='' || others.some(f=>f.data[k]===''||f.data[k]==null)) miss++;
+  }
+  const el_miss = document.getElementById('st-miss');
+  const el_tc   = document.getElementById('tc-missing');
+  const el_tot  = document.getElementById('st-total');
+  const el_ph   = document.getElementById('st-ph');
+  const el_tcp  = document.getElementById('tc-ph');
+  if(el_miss) el_miss.textContent = miss;
+  if(el_tc)   el_tc.textContent   = miss;   // tab badge matches stat
+  if(el_tot)  el_tot.textContent  = total;
+  if(el_ph)   el_ph.textContent   = phc;
+  if(el_tcp)  el_tcp.textContent  = phc;
 }
 
 function refreshCellTags(lang, key, newVal){
@@ -1473,7 +1533,6 @@ function refreshCellTags(lang, key, newVal){
   if(!td) return;
   const f = S.files.find(x => x.lang===lang);
   if(!f) return;
-  const isOrphan = !!(f.orphan && f.orphan[key]);
   const isEmpty = newVal === '';
 
   // Remove existing tags
@@ -1481,18 +1540,13 @@ function refreshCellTags(lang, key, newVal){
 
   // Re-insert tags before .cas
   const cas = td.querySelector('.cas');
-  if(isEmpty && !isOrphan && lang !== S.master){
+  if(isEmpty){
     const tag = document.createElement('span');
     tag.className = 'tag missing';
     tag.textContent = '!';
     cas ? td.querySelector('.ci').insertBefore(tag, cas) : td.querySelector('.ci').appendChild(tag);
   }
-  if(isOrphan){
-    const tag = document.createElement('span');
-    tag.className = 'tag orphan';
-    tag.textContent = 'orphan';
-    cas ? td.querySelector('.ci').insertBefore(tag, cas) : td.querySelector('.ci').appendChild(tag);
-  }
+
 
   // Update .ct classes
   const ct = td.querySelector('.ct');
@@ -1503,19 +1557,22 @@ function refreshCellTags(lang, key, newVal){
   }
 }
 
-function refreshKeyColTag(key, newVal){
-  // Update the ⚠ master tag in the key column
-  const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
+function refreshKeyColTag(key){
+  // Show 'missing' tag in key column if ANY lang (incl master) is empty for this key
+  const row = document.querySelector(`#tbody-key tr[data-key="${CSS.escape(key)}"]`);
   if(!row) return;
   const kcInner = row.querySelector('.kc-inner');
   if(!kcInner) return;
-  kcInner.querySelectorAll('.tag.warn').forEach(t => t.remove());
-  if(newVal === ''){
+  kcInner.querySelectorAll('.tag.warn, .tag.missing').forEach(t => t.remove());
+  const anyEmpty = !isCat(key) && S.files.some(f=>(f.data[key]===''||f.data[key]==null));
+  if(anyEmpty){
     const tag = document.createElement('span');
-    tag.className = 'tag warn';
-    tag.title = 'Empty in master';
-    tag.textContent = '⚠ master';
-    kcInner.appendChild(tag);
+    tag.className = 'tag missing';
+    tag.title = 'One or more languages missing this key';
+    tag.textContent = 'missing';
+    // Insert before .kc-actions so tag stays left of the edit/delete buttons
+    const actions = kcInner.querySelector('.kc-actions');
+    actions ? kcInner.insertBefore(tag, actions) : kcInner.appendChild(tag);
   }
 }
 
@@ -1590,8 +1647,9 @@ function keyNameBlur(el){
   if(row) row.dataset.key = newKey;
   markDirty();
   toast(`Renamed "${oldKey}" → "${newKey}"`, 'ok');
-  // Partial re-render to update data-lang/data-key on td.vc cells
+  // Re-render then restore keyboard focus to the renamed row
   renderTable();
+  _kbSetFocus(newKey, false);
 }
 
 function keyNameKeydown(e, el){
@@ -2010,15 +2068,6 @@ function deleteKey(key){
   );
 }
 
-function promoteOrphan(key){
-  const m=getMaster(); if(!m) return;
-  pushUndo();
-  m.data[key]='';
-  S.keyOrder.push(key);
-  sync(); markDirty(); renderTable();
-  toast(`"${key}" added to master`,'wa');
-}
-
 function buildPosOpts(afterKey,posDefault){
   // afterKey: the key to pre-select; posDefault 'after' means select 'after:afterKey'
   const isAfter = posDefault==='after' && !!afterKey;
@@ -2131,7 +2180,15 @@ function showModal(html){
         e.preventDefault();
         const btns=[...md.querySelectorAll('button.tb-btn')].filter(b=>
           b.classList.contains('primary')||b.classList.contains('danger'));
-        if(btns.length===1) btns[0].click();
+        if(btns.length===1){
+          // Blur first so nothing in the main table is focused.
+          // Defer the click with setTimeout(0) so this keydown event fully
+          // finishes (stops propagating to any newly-focused element) before
+          // the modal action fires.
+          document.activeElement?.blur();
+          document.body.focus();
+          setTimeout(()=>btns[0].click(), 0);
+        }
       }
     };
     md.addEventListener('keydown',md._kbHandler);
@@ -2165,7 +2222,7 @@ function openNewLangModal(){
     <h3>New language file</h3>
     <p>Create a brand-new language from scratch.</p>
     <div class="fg"><label class="fl">Language code</label><input class="fi2" id="m-nlcode" placeholder="e.g. fr_fr" autofocus></div>
-    <div class="fg"><label class="toggle-wrap" for="m-prefill"><input type="checkbox" id="m-prefill" checked><div class="toggle-track"><div class="toggle-thumb"></div></div><span class="toggle-label">Pre-fill with master values</span></label></div>
+    <div class="fg"><div class="toggle-wrap" onclick="const cb=document.getElementById('m-prefill');cb.checked=!cb.checked"><input type="checkbox" id="m-prefill" checked tabindex="-1"><div class="toggle-track" tabindex="0" onkeydown="if(event.key===' '||event.key==='Enter'){event.preventDefault();const cb=document.getElementById('m-prefill');cb.checked=!cb.checked}"><div class="toggle-thumb"></div></div><span class="toggle-label">Pre-fill with master values</span></div></div>
     <div class="md-act">
       <button class="tb-btn" onclick="closeModal()">Cancel</button>
       <button class="tb-btn primary" onclick="confirmNewLang()">Create</button>
@@ -2184,6 +2241,61 @@ function confirmNewLang(){
   S.files.push(nf);
   closeModal(); markDirty(); renderTable();
   toast(`Language "${code}" created${prefill?' (pre-filled)':''}`, 'ok');
+}
+
+function openEditFilesModal(){
+  function buildRows(){
+    return S.files.map((f,i)=>`
+      <div class="fe-row" data-idx="${i}">
+        <button class="fe-mv" onclick="feMove(${i},-1)" ${i===0?'disabled':''} title="Move up">▲</button>
+        <button class="fe-mv" onclick="feMove(${i},1)" ${i===S.files.length-1?'disabled':''} title="Move down">▼</button>
+        <input class="fe-input" data-idx="${i}" value="${esc(f.lang)}" onblur="feRenameAt(${i},this.value)" spellcheck="false" title="File name (without .json)">
+        <span class="fe-ext">.json</span>
+        <button class="fe-master-btn${f.lang===S.master?' active':''}" onclick="feSetMaster(${i})">${f.lang===S.master?'✓ master':'set master'}</button>
+        <button class="fe-del" onclick="feRemove(${i})" title="Remove" ${S.files.length<=1?'disabled':''}>${ICON_TRASH}</button>
+      </div>`).join('');
+  }
+  window._feRebuild=()=>{ const el=document.getElementById('fe-list'); if(el) el.innerHTML=buildRows(); };
+  showModal(`
+    <h3>Edit files</h3>
+    <p style="font-size:12px;color:var(--text2);margin-bottom:10px">Rename files, change their order, or set a new master.</p>
+    <div id="fe-list">${buildRows()}</div>
+    <div class="md-act" style="margin-top:14px">
+      <button class="tb-btn primary" onclick="closeModal();renderSidebar();renderTable()">Done</button>
+    </div>`);
+}
+function feMove(idx,dir){
+  const ni=idx+dir;
+  if(ni<0||ni>=S.files.length) return;
+  [S.files[idx],S.files[ni]]=[S.files[ni],S.files[idx]];
+  markDirty(); window._feRebuild&&window._feRebuild();
+}
+function feRenameAt(idx,raw){
+  const f=S.files[idx]; if(!f) return;
+  const name=raw.trim().replace(/\.json$/i,'').replace(/[^a-zA-Z0-9_\-]/g,'_');
+  if(!name||name===f.lang) return;
+  if(S.files.some((x,xi)=>xi!==idx&&x.lang===name)){ toast(`"${name}" already used`,'er'); window._feRebuild&&window._feRebuild(); return; }
+  const wasMaster=f.lang===S.master;
+  f.lang=name; f.filename=name+'.json';
+  if(wasMaster) S.master=name;
+  markDirty(); window._feRebuild&&window._feRebuild();
+}
+function feSetMaster(idx){
+  // Commit any pending renames first (inputs may have unsaved text)
+  document.querySelectorAll('#fe-list .fe-input').forEach(inp=>{
+    feRenameAt(parseInt(inp.dataset.idx),inp.value);
+  });
+  S.master=S.files[idx].lang;
+  rebuildKeyOrder(); sync(); markDirty();
+  window._feRebuild&&window._feRebuild();
+}
+function feRemove(idx){
+  if(S.files.length<=1){ toast('Cannot remove the only file','er'); return; }
+  if(S.files[idx].lang===S.master){ toast('Set a different master before removing this file','er'); return; }
+  showConfirm(`Remove <strong>${esc(S.files[idx].lang)}.json</strong>?`,()=>{
+    S.files.splice(idx,1);
+    markDirty(); window._feRebuild&&window._feRebuild();
+  });
 }
 
 function openPickMasterModal(){
@@ -2214,17 +2326,7 @@ async function exportAll(){
     const out={};
     for(const k of S.keyOrder){
       if(!(k in f.data)) continue;
-      if(f.lang!==S.master&&(f.data[k]===''||f.data[k]==null)){
-        // Empty translation → omit key from output (don't fall back to master)
-      } else {
-        out[k]=f.data[k];
-      }
-    }
-    // Fallback: orphan keys (in f.data but not in keyOrder)
-    // Still omit empty non-master translations
-    for(const k of Object.keys(f.data)){
-      if(k in out) continue;
-      if(f.lang!==S.master&&(f.data[k]===''||f.data[k]==null)) continue;
+      if(f.data[k]===''||f.data[k]==null) continue; // skip empty for all langs incl. master
       out[k]=f.data[k];
     }
     return out;
@@ -2390,6 +2492,10 @@ function openShortcutsModal(){
         ${row('Ctrl+K','Add key after focused row')}
         ${row('Ctrl+Shift+K','Add category after focused row')}
         ${row('Ctrl+L','Add new language file')}
+        <tr class="sc-group"><td colspan="3">Filters</td></tr>
+        ${row('Alt+1','Show all keys')}
+        ${row('Alt+2','Show missing keys only')}
+        ${row('Alt+3','Show %s keys only')}
         <tr class="sc-group"><td colspan="3">Search</td></tr>
         ${row('/ or Ctrl+F','Focus search bar')}
         ${row('Escape','Clear search, return to table','When search bar focused')}
@@ -2413,10 +2519,15 @@ document.addEventListener('keydown',e=>{
   const hasFiles = S.files.length > 0;
 
   // ── Always-on shortcuts ──
+  // ── Alt+1/2/3: switch filter tabs — e.code is layout-independent (works on AZERTY etc.) ──
+  if(e.altKey && !e.ctrlKey && e.code==='Digit1'){ e.preventDefault(); if(hasFiles) setTab('all'); return; }
+  if(e.altKey && !e.ctrlKey && e.code==='Digit2'){ e.preventDefault(); if(hasFiles) setTab('missing'); return; }
+  if(e.altKey && !e.ctrlKey && e.code==='Digit3'){ e.preventDefault(); if(hasFiles) setTab('ph'); return; }
+
   if(mod && e.key==='z' && !e.shiftKey){ e.preventDefault(); doUndo(); return; }
   if(mod && e.key==='z' &&  e.shiftKey){ e.preventDefault(); doRedo(); return; }
   if(mod && e.key==='s'){ e.preventDefault(); if(hasFiles) exportAll(); return; }
-  if(mod && !e.shiftKey && e.key.toLowerCase()==='l'){ e.preventDefault(); openNewLangModal(); return; }
+  if(mod && !e.shiftKey && e.key.toLowerCase()==='l'){ e.preventDefault(); if(hasFiles) openNewLangModal(); return; }
 
   // ── Ctrl+Shift+A: deselect all (opposite of select all) ──
   if(mod && e.shiftKey && e.key.toLowerCase()==='a'){
